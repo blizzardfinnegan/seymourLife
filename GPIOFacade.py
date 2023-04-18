@@ -6,7 +6,7 @@ class GPIOFacade:
     RELAY_PINS = [4,5,6,12,13,17,18,19,20,26]
     GPIO.setmode(GPIO.BCM)
     GPIO.setwarnings(False)
-    for pin in GPIOFacade.RELAY_PINS:
+    for pin in RELAY_PINS:
         GPIO.setup(pin, GPIO.OUT)
         GPIO.output(pin, GPIO.LOW)
 
@@ -28,3 +28,6 @@ class GPIOFacade:
     
     def relayLowByDevice(device: DeviceLog.Device) -> None:
         GPIOFacade.relayLow(device.gpioPort)
+
+    def close() -> None:
+        for pin in GPIOFacade.RELAY_PINS: GPIO.output(pin,GPIO.LOW)
