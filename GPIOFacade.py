@@ -10,6 +10,9 @@ class GPIOFacade:
         GPIO.setup(pin, GPIO.OUT)
         GPIO.output(pin, GPIO.LOW)
 
+    def __init__(self):
+        return self
+
     def relayHigh(pin: int) -> None:
         if pin in GPIOFacade.RELAY_PINS:
             GPIO.output(pin,GPIO.HIGH)
@@ -23,11 +26,8 @@ class GPIOFacade:
         else:
             raise Exception("Pin " + pin + " is invalid pin!")
 
-    def relayHighByDevice(device: DeviceLog.Device) -> None:
-        GPIOFacade.relayHigh(device.gpioPort)
-    
-    def relayLowByDevice(device: DeviceLog.Device) -> None:
-        GPIOFacade.relayLow(device.gpioPort)
-
     def close() -> None:
         for pin in GPIOFacade.RELAY_PINS: GPIO.output(pin,GPIO.LOW)
+
+    def getPins(self):
+        return self.RELAY_PINS

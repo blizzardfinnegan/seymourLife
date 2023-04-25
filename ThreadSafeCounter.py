@@ -22,3 +22,8 @@ class ThreadSafeCounter():
     def value(self):
         with self._lock:
             return self._counter
+
+    #prematurely clear counter
+    def clear(self):
+        with self._lock:
+            self._counter = 0

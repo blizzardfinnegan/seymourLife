@@ -2,13 +2,6 @@ from dataclasses import dataclass
 import serial
 
 @dataclass
-class Device():
-    def __init__(self, serial: str, gpioPort: int,
-                  usbPort: serial.Serial):
-        self.serial = serial
-        self.gpioPort = gpioPort
-        self.usbPort = usbPort
-        return self
 
 @dataclass
 class DeviceLog():
