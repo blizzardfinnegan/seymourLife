@@ -1,14 +1,37 @@
 import logging
+import datetime
+now = datetime.datetime.now()
+startTime = now.strftime('%Y-%m-%d_%H.%M')
 formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-class Logs:
-    def setup_logger(name, log_file, level=logging.INFO):
-        """To setup as many loggers as you want"""
 
-        handler = logging.FileHandler(log_file)        
-        handler.setFormatter(formatter)
+masterHandler = logging.fileHandler("logs/" + startTime + ".log")
+masterHandler.setFormatter(formatter)
 
-        logger = logging.getLogger(name)
-        logger.setLevel(level)
-        logger.addHandler(handler)
+masterLogger = logging.getLogger("Main")
+masterLogger.setLevel(logging.DEBUG)
+masterLogger.addHandler(masterHandler)
 
-        return logger
+class Logs: 
+    def __init__(self, serial: str):
+        self.conciseHandler = logging.fileHandler("output/" + startTime + ".errors")
+        self.conciseHandler.setFormatter(formatter)
+        self.conciseLogger = logging.getLogger("Concise")
+        self.conciseLogger.setLevel(logging.WARNING)
+
+    def debug(message, *args, **kwargs) -> None:
+        masterLogger.debug(message,args,kwargs)
+    
+    def info(message, *args, **kwargs) -> None:
+        masterLogger.info(message,args,kwargs)
+    
+    def warning(self, message, *args, **kwargs) -> None:
+        masterLogger.warning(message,args,kwargs)
+        self.conciseLogger.warning(message,args,kwargs)
+    
+    def error(self, message, *args, **kwargs) -> None:
+        masterLogger.error(message,args,kwargs)
+        self.conciseLogger.error(message,args,kwargs)
+    
+    def critical(self, message, *args, **kwargs) -> None:
+        masterLogger.critical(message,args,kwargs)
+        self.conciseLogger.critical(message,args,kwargs)

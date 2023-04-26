@@ -22,7 +22,7 @@ class GPIOFacade:
         
     def relayLow(pin: int) -> None:
         if pin in GPIOFacade.RELAY_PINS:
-            GPIO.output(pin,GPIO.HIGH)
+            GPIO.output(pin,GPIO.LOW)
         else:
             raise Exception("Pin " + pin + " is invalid pin!")
 
