@@ -105,66 +105,63 @@ class Device():
     def _goToBrightnessMenu(self) -> None:
         Logs.debug("Sending device " + self.serial + " to brightness menu...")
         while not (self.state == State.BRIGHTNESS_MENU):
-            match self.state:
-                case State.BRIGHTNESS_MENU:
-                    Logs.info("Device " + self.serial + "already at brightness menu!")
-                    return
-                case State.LOGIN_PROMPT:
-                    self._writeToSeymour(RemoteCommand.LOGIN)
-                    self.state = State.DEBUG_MENU
+            if self.state == State.BRIGHTNESS_MENU:
+                Logs.info("Device " + self.serial + "already at brightness menu!")
+                return
+            elif self.state == State.LOGIN_PROMPT:
+                self._writeToSeymour(RemoteCommand.LOGIN)
+                self.state = State.DEBUG_MENU
 
-                case State.DEBUG_MENU:
-                    self._writeToSeymour(RemoteCommand.LIFECYCLE_MENU)
-                    self.state = State.LIFECYCLE_MENU
+            elif self.state == State.DEBUG_MENU:
+                self._writeToSeymour(RemoteCommand.LIFECYCLE_MENU)
+                self.state = State.LIFECYCLE_MENU
 
-                case State.LIFECYCLE_MENU:
-                    self._writeToSeymour(RemoteCommand.BRIGHTNESS_MENU)
-                    self.state = State.BRIGHTNESS_MENU
+            elif self.state == State.LIFECYCLE_MENU:
+                self._writeToSeymour(RemoteCommand.BRIGHTNESS_MENU)
+                self.state = State.BRIGHTNESS_MENU
 
     def _goToLifecycleMenu(self) -> None:
         Logs.debug("Sending device " + self.serial + " to lifecycle menu...")
         while not (self.state == State.LIFECYCLE_MENU):
-            match self.state:
-                case State.LIFECYCLE_MENU:
-                    Logs.info("Device " + self.serial + "already at lifecycle menu!")
-                    return
-                
-                case State.LOGIN_PROMPT:
-                    self._writeToSeymour(RemoteCommand.LOGIN)
-                    self.state = State.DEBUG_MENU
+            if self.state == State.LIFECYCLE_MENU:
+                Logs.info("Device " + self.serial + "already at lifecycle menu!")
+                return
+            
+            elif self.state == State.LOGIN_PROMPT:
+                self._writeToSeymour(RemoteCommand.LOGIN)
+                self.state = State.DEBUG_MENU
 
-                case State.DEBUG_MENU:
-                    self._writeToSeymour(RemoteCommand.LIFECYCLE_MENU)
-                    self.state = State.LIFECYCLE_MENU
-                    return
+            elif self.state == State.DEBUG_MENU:
+                self._writeToSeymour(RemoteCommand.LIFECYCLE_MENU)
+                self.state = State.LIFECYCLE_MENU
+                return
 
-                case State.BRIGHTNESS_MENU:
-                    self._writeToSeymour(RemoteCommand.UP_MENU_LEVEL)
-                    self.state = State.LIFECYCLE_MENU
-                    return
+            elif self.state == State.BRIGHTNESS_MENU:
+                self._writeToSeymour(RemoteCommand.UP_MENU_LEVEL)
+                self.state = State.LIFECYCLE_MENU
+                return
         return
             
     def _goToDebugMenu(self) -> None:
         Logs.debug("Sending device " + self.serial + " to debug menu...")
         while not (self.state == State.DEBUG_MENU):
-            match self.state:
-                case State.DEBUG_MENU:
-                    Logs.info("Device " + self.serial + "already at debug menu!")
-                    return
+            if self.state == State.DEBUG_MENU:
+                Logs.info("Device " + self.serial + "already at debug menu!")
+                return
 
-                case State.LIFECYCLE_MENU:
-                    self._writeToSeymour(RemoteCommand.UP_MENU_LEVEL)
-                    self.state = State.DEBUG_MENU
-                    return
+            elif self.state == State.LIFECYCLE_MENU:
+                self._writeToSeymour(RemoteCommand.UP_MENU_LEVEL)
+                self.state = State.DEBUG_MENU
+                return
 
-                case State.LOGIN_PROMPT:
-                    self._writeToSeymour(RemoteCommand.LOGIN)
-                    self.state = State.DEBUG_MENU
-                    return
+            elif self.state == State.LOGIN_PROMPT:
+                self._writeToSeymour(RemoteCommand.LOGIN)
+                self.state = State.DEBUG_MENU
+                return
 
-                case State.BRIGHTNESS_MENU:
-                    self._writeToSeymour(RemoteCommand.UP_MENU_LEVEL)
-                    self.state = State.LIFECYCLE_MENU
+            elif self.state == State.BRIGHTNESS_MENU:
+                self._writeToSeymour(RemoteCommand.UP_MENU_LEVEL)
+                self.state = State.LIFECYCLE_MENU
         return
 
     def setSerial(self,serial: str) -> None:
@@ -208,25 +205,26 @@ class Device():
         Logs.info("Checking " + self.serial + " BP state:")
         while True:
             readValue = self._readFromSeymour()
-            match readValue:
-                case SerialResponses.DEBUG_CRASH | SerialResponses.DEBUG_CRASH_ERROR | SerialResponses.DECODE_ERROR:
-                    return self.isBPRunning()
-                case SerialResponses.OTHER:
-                    continue
-                case SerialResponses.BP_OFF:
-                    Logs.info(self.serial + ": BP off")
-                    return False
-                case SerialResponses.BP_ON:
-                    Logs.info(self.serial + ": BP on")
-                    self.bps += 1
-                    self._updateOutput(self.reboots,self.bps,self.temps)
-                    return True
-                case _:
-                    if self.logger is not None:
-                        self.logger.error(self.serial + " returned unexpected bp output! Now in unknown state!")
-                    else:
-                        Logs.error(self.serial + " returned unexpected bp output! Now in unknown state!")
-                    return False
+            if ( readValue == SerialResponses.DEBUG_CRASH or 
+                 readValue == SerialResponses.DEBUG_CRASH_ERROR or
+                 readValue == SerialResponses.DECODE_ERROR):
+                return self.isBPRunning()
+            elif readValue == SerialResponses.OTHER:
+                continue
+            elif readValue == SerialResponses.BP_OFF:
+                Logs.info(self.serial + ": BP off")
+                return False
+            elif readValue == SerialResponses.BP_ON:
+                Logs.info(self.serial + ": BP on")
+                self.bps += 1
+                self._updateOutput(self.reboots,self.bps,self.temps)
+                return True
+            else:
+                if self.logger is not None:
+                    self.logger.error(self.serial + " returned unexpected bp output! Now in unknown state!")
+                else:
+                    Logs.error(self.serial + " returned unexpected bp output! Now in unknown state!")
+                return False
 
     def isTempRunning(self) -> bool:
         self._goToLifecycleMenu()
@@ -234,23 +232,24 @@ class Device():
         Logs.info("Checking " + self.serial + " BP state:")
         while True:
             readValue = self._readFromSeymour()
-            match readValue:
-                case SerialResponses.DEBUG_CRASH | SerialResponses.DEBUG_CRASH_ERROR | SerialResponses.DECODE_ERROR:
+            if ( readValue == SerialResponses.DEBUG_CRASH or 
+                 readValue == SerialResponses.DEBUG_CRASH_ERROR or
+                 readValue == SerialResponses.DECODE_ERROR):
                     return self.isBPRunning()
-                case SerialResponses.OTHER:
-                    continue
-                case SerialResponses.TEMP_FAILED:
-                    return False
-                case SerialResponses.TEMP_SUCCESS:
-                    self.temps += 1
-                    self._updateOutput(self.reboots,self.bps,self.temps)
-                    return True
-                case _: 
-                    if self.logger is not None:
-                        self.logger.error(self.serial + " returned unexpected temp output! Now in unknown state!")
-                    else:
-                        Logs.error(self.serial + " returned unexpected temp output! Now in unknown state!")
-                    return False
+            elif readValue == SerialResponses.OTHER:
+                continue
+            elif readValue == SerialResponses.TEMP_FAILED:
+                return False
+            elif readValue == SerialResponses.TEMP_SUCCESS:
+                self.temps += 1
+                self._updateOutput(self.reboots,self.bps,self.temps)
+                return True
+            else: 
+                if self.logger is not None:
+                    self.logger.error(self.serial + " returned unexpected temp output! Now in unknown state!")
+                else:
+                    Logs.error(self.serial + " returned unexpected temp output! Now in unknown state!")
+                return False
 
     def reboot(self) -> None:
         Logs.info("Rebooting " + self.serial)

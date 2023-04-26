@@ -1,5 +1,4 @@
 import RPi.GPIO as GPIO
-import DeviceLog
 
 class GPIOFacade:
     # Below code will always run first.
