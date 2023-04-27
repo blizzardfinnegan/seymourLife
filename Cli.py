@@ -1,26 +1,27 @@
 #! /usr/bin/python3
 
 import queue
-import serial
+from serial import Serial
+import os
+from pathlib import Path
 import threading
 import calendar
 import glob
 import time
-import Device
+from Device import Device
 import LogFacade
-import GPIOFacade
+from GPIOFacade import GPIOFacade
 
 currentTime = time.gmtime()
-timestamp = currentTime.tm_year + "-" + currentTime.tm_mon + "-" + currentTime.tm_mday + "_" 
-timestamp += currentTime.tm_hour + "." + currentTime.tm_min + "." + currentTime.tm_sec
+timestamp = str(currentTime.tm_year) + "-" + str(currentTime.tm_mon) + "-" + str(currentTime.tm_mday) + "_" 
+timestamp += str(currentTime.tm_hour) + "." + str(currentTime.tm_min) + "." + str(currentTime.tm_sec)
 VERSION = "2.0.0"
 iterationCount = -1
 BP_CYCLES_PER_ITERATION = 3
 TEMP_CYCLES_PER_ITERATION = 2
 
-gpio = GPIOFacade()
-deviceList = list()
-remainingGpioPins = set(gpio.getPins())
+deviceList = []
+remainingGpioPins = set(GPIOFacade.getPins())
 
 def singleDeviceIterations(device: Device, iterationCount: int) -> None:
     for i in range(iterationCount):
@@ -35,11 +36,13 @@ def singleDeviceIterations(device: Device, iterationCount: int) -> None:
         while not (device.isRebooted()): {}
 
 if __name__ == "__main__":
-    for shell in serial.tools.list_ports.comports(True):
-        boolean = True
-        device = Device(shell.device)
+    for shellFile in Path("/dev").glob("ttyUSB*"):
+        shell = os.path.join("/dev",shellFile)
+        print(shellFile)
+        device = Device(shell)
         deviceList.append(device)
 
+    print(deviceList)
     for device in deviceList:
         device.darkenScreen()
 
@@ -48,7 +51,7 @@ if __name__ == "__main__":
         device.setSerial(input("Enter the serial of the device with the bright screen: "))
         device.darkenScreen()
         for pin in remainingGpioPins:
-            gpio.pinHigh(pin)
+            GPIOFacade.pinHigh(pin)
             time.sleep(5)
             if(device.isTempRunning()):
                 device.setGPIO(pin)
