@@ -67,6 +67,7 @@ class Device():
         self.state = State.LOGIN_PROMPT
         #self.logWriter = Logs(usbPort.name)
         self.reboots = 0
+        self.logger = Logs(usbPort)
         self.bps = 0
         self.temps = 0
         self.lock = threading.Lock()
