@@ -4,7 +4,7 @@ now = datetime.datetime.now()
 startTime = now.strftime('%Y-%m-%d_%H.%M')
 formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
 
-masterHandler = logging.fileHandler("logs/" + startTime + ".log")
+masterHandler = logging.FileHandler("logs/" + startTime + ".log")
 masterHandler.setFormatter(formatter)
 
 masterLogger = logging.getLogger("Main")
@@ -12,26 +12,35 @@ masterLogger.setLevel(logging.DEBUG)
 masterLogger.addHandler(masterHandler)
 
 class Logs: 
-    def __init__(self, serial: str):
-        self.conciseHandler = logging.fileHandler("output/" + startTime + ".errors")
+    def __init__(self, usbTTY: str):
+        serialPort = usbTTY.split('/')[2]
+        self.conciseHandler = logging.FileHandler("output/" + startTime + "-" + serialPort + ".errors")
         self.conciseHandler.setFormatter(formatter)
         self.conciseLogger = logging.getLogger("Concise")
         self.conciseLogger.setLevel(logging.WARNING)
 
-    def debug(message, *args, **kwargs) -> None:
-        masterLogger.debug(message,args,kwargs)
+    def debug(message) -> None:
+        masterLogger.debug(message)
+        masterHandler.flush()
     
-    def info(message, *args, **kwargs) -> None:
-        masterLogger.info(message,args,kwargs)
+    def info(message) -> None:
+        masterLogger.info(message)
+        masterHandler.flush()
     
-    def warning(self, message, *args, **kwargs) -> None:
-        masterLogger.warning(message,args,kwargs)
-        self.conciseLogger.warning(message,args,kwargs)
+    def warning(self, message) -> None:
+        masterLogger.warning(message)
+        masterHandler.flush()
+        self.conciseLogger.warning(message)
+        self.conciseHandler.flush()
     
-    def error(self, message, *args, **kwargs) -> None:
-        masterLogger.error(message,args,kwargs)
-        self.conciseLogger.error(message,args,kwargs)
+    def error(self, message) -> None:
+        masterLogger.error(message)
+        masterHandler.flush()
+        self.conciseLogger.error(message)
+        self.conciseHandler.flush()
     
-    def critical(self, message, *args, **kwargs) -> None:
-        masterLogger.critical(message,args,kwargs)
-        self.conciseLogger.critical(message,args,kwargs)
+    def critical(self, message) -> None:
+        masterLogger.critical(message)
+        masterHandler.flush()
+        self.conciseLogger.critical(message)
+        self.conciseHandler.flush()
