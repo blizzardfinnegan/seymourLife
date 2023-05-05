@@ -1,3 +1,6 @@
+#cargo-features = ["per-package-target"]
+
+forced-target = "arm-unknown-linux-gnueabihf"
 [package]
 name = "seymour_poc_rust"
 version = "0.1.0"
@@ -5,12 +8,9 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-#[build]
-#target = "arm-unknown-linux-gnueabihf"
-
 [dependencies]
-gpio = "0.4.1"
+rppal = "0.14.1"
 serialport = "4.2.0"
 log = "0.4"
 fern = "0.6.2"
-humantime = "2.1.0"
+chrono = "0.4.24"
