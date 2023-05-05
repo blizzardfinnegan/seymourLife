@@ -1,0 +1,4 @@
+2023-05-05T14:18:31Z - [WARN, seymour_poc_rust] - Test trace message
+2023-05-05T14:18:31Z - [ERROR, seymour_poc_rust] - Test trace message
+2023-05-05T14:19:58.579Z - [WARN, seymour_poc_rust] - Test trace message
+2023-05-05T14:19:58.579Z - [ERROR, seymour_poc_rust] - Test trace message
