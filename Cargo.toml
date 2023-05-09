@@ -1,6 +1,5 @@
 #cargo-features = ["per-package-target"]
 
-forced-target = "arm-unknown-linux-gnueabihf"
 [package]
 name = "seymour_poc_rust"
 version = "0.1.0"
