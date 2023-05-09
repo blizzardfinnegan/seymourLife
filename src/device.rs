@@ -1,9 +1,14 @@
-use std::{fs::{self, File}, path::Path, io::{BufReader, BufRead}, thread, time::Duration};
+use std::{fs::{self, File}, path::Path, io::{BufReader, BufRead, BufWriter, Write}, thread, time::Duration};
 use crate::{tty, gpio_facade::Relay};
 
 const BOOT_TIME:Duration = Duration::new(60, 0);
 const BP_START:Duration = Duration::new(60, 0);
 const BP_RUN:Duration = Duration::new(60, 0);
+const REBOOTS_SECTION: &str = "Reboots: ";
+const BP_SECTION: &str = "Successful BP tests: ";
+const TEMP_SECTION: &str = "Successful temp tests: ";
+const OUTPUT_FOLDER: &str = "output/";
+const UNINITIALISED_SERIAL: &str = "uninitialised";
 #[derive(PartialEq)]
 pub enum State{
     LoginPrompt,
@@ -15,7 +20,7 @@ pub enum State{
 pub struct Device{
     usb_tty: tty::TTY,
     output_file: Option<File>,
-    pin: Option<Relay>,
+    pin: Option<&'static mut Relay>,
     serial: String,
     current_state: State,
     reboots: u64,
@@ -25,11 +30,10 @@ pub struct Device{
 
 impl Device{
     fn load_values(&mut self) -> &mut Self {
-        let mut output_path:String = "output/".to_string();
-        if ! Path::new(&output_path).is_dir(){
-            _ = fs::create_dir(&output_path);
+        if ! Path::new(&OUTPUT_FOLDER).is_dir(){
+            _ = fs::create_dir(&OUTPUT_FOLDER);
         };
-        output_path.push_str(&self.serial.to_string());
+        let output_path = OUTPUT_FOLDER.to_owned() + &self.serial.to_string();
         if ! Path::new(&output_path).exists(){
             self.output_file = Some(fs::File::create(&output_path).unwrap());
         }
@@ -42,13 +46,13 @@ impl Device{
                     let section: &str = &*split_sections.next().unwrap().to_lowercase();
                     let value = split_sections.next().unwrap().parse::<u64>().unwrap();
                     match section {
-                        "Reboots: " => {
+                        REBOOTS_SECTION => {
                             self.reboots = value;
                         },
-                        "Successful BP cycles:" => {
+                        BP_SECTION => {
                             self.bps = value;
                         },
-                        "Successful temp cycles:" => {
+                        TEMP_SECTION => {
                             self.temps = value;
                         },
                         _ => ()
@@ -63,7 +67,7 @@ impl Device{
             usb_tty: usb_port,
             pin: None,
             output_file: None,
-            serial: "uninitialised".to_string(),
+            serial: UNINITIALISED_SERIAL.to_string(),
             current_state: State::LoginPrompt,
             reboots: 0,
             temps: 0,
@@ -110,6 +114,7 @@ impl Device{
         };
         return self;
     }
+    #[allow(dead_code)]
     fn go_to_debug_menu(&mut self) -> &mut Self{
         while !(self.current_state == State::DebugMenu){
             match self.current_state {
@@ -154,13 +159,29 @@ impl Device{
         };
         return self;
     }
+    fn save_values(&mut self) -> &mut Self{
+        if let Some(file_name) = &self.output_file{
+            let mut file_writer = BufWriter::new(file_name);
+            let mut output_data = REBOOTS_SECTION.to_string();
+            output_data.push_str(&self.reboots.to_string());
+            output_data.push_str("\n");
+            output_data.push_str(BP_SECTION);
+            output_data.push_str(&self.bps.to_string());
+            output_data.push_str("\n");
+            output_data.push_str(TEMP_SECTION);
+            output_data.push_str(&self.temps.to_string());
+            file_writer.write_all(output_data.as_bytes()).expect("Unable to write to bufwriter");
+            file_writer.flush().expect("Unable to write to file");
+        }
+        return self;
+    }
     pub fn set_serial(&mut self, serial:&str) -> &mut Self{
         self.serial = serial.to_string();
         self.load_values();
         return self;
     }
-    pub fn set_gpio(&mut self, gpio_pin: Relay) -> &mut Self{
-        self.pin = Some(gpio_pin);
+    pub fn set_gpio(&mut self, gpio_pin:Relay) -> &mut Self{
+        self.pin = Some(&mut gpio_pin);
         return self;
     }
     pub fn start_temp(&mut self) -> &mut Self {
@@ -224,7 +245,7 @@ impl Device{
         else{
             self.go_to_login_prompt();
             self.reboots +=1;
-            //Write values to file
+            self.save_values();
             return true;
         }
     }
@@ -245,7 +266,7 @@ impl Device{
             let _bp_end = self.is_bp_running();
             if _bp_start != _bp_end {
                 self.bps +=1;
-                //Write values to file
+                self.save_values();
             }
         }
         for temp_count in 1..=local_temp_cycles{
@@ -254,12 +275,12 @@ impl Device{
             let _temp_end = self.stop_temp().is_temp_running();
             if _temp_start != _temp_end {
                 self.temps +=1;
-                //Write values to file
+                self.save_values();
             }
         }
         log::info!("Rebooting {}",self.serial);
         self.reboot();
         self.reboots += 1;
-        //Write values to file
+        self.save_values();
     }
 }

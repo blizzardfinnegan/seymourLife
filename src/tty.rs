@@ -3,9 +3,9 @@ use once_cell::sync::Lazy;
 use serialport::{SerialPortInfo, SerialPort};
 use derivative::Derivative;
 
-const BAUD_RATE:u32 = 115200;
+pub const BAUD_RATE:u32 = 115200;
 
-const AVAILABLE_TTYS: Lazy<Vec<SerialPortInfo>> = Lazy::new(||serialport::available_ports().unwrap());
+pub const AVAILABLE_TTYS: Lazy<Vec<SerialPortInfo>> = Lazy::new(||serialport::available_ports().unwrap());
 
 #[derive(Eq,Derivative)]
 #[derivative(PartialEq, Hash)]
