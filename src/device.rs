@@ -1,6 +1,5 @@
-use rppal::gpio::OutputPin;
 use std::{fs::{self, File}, path::Path, io::{BufReader, BufRead}, thread, time::Duration};
-use crate::tty;
+use crate::{tty, gpio_facade::Relay};
 
 const BOOT_TIME:Duration = Duration::new(60, 0);
 const BP_START:Duration = Duration::new(60, 0);
@@ -16,7 +15,7 @@ pub enum State{
 pub struct Device{
     usb_tty: tty::TTY,
     output_file: Option<File>,
-    pin: Option<OutputPin>,
+    pin: Option<Relay>,
     serial: String,
     current_state: State,
     reboots: u64,
@@ -160,19 +159,19 @@ impl Device{
         self.load_values();
         return self;
     }
-    pub fn set_gpio(&mut self, gpio_pin: OutputPin) -> &mut Self{
+    pub fn set_gpio(&mut self, gpio_pin: Relay) -> &mut Self{
         self.pin = Some(gpio_pin);
         return self;
     }
     pub fn start_temp(&mut self) -> &mut Self {
         if let Some(ref mut gpio_pin) = self.pin{
-            gpio_pin.set_high();
+            gpio_pin.high();
         }
         return self;
     }
     pub fn stop_temp(&mut self) -> &mut Self {
         if let Some(ref mut gpio_pin) = self.pin{
-            gpio_pin.set_high();
+            gpio_pin.low();
         }
         return self;
     }
