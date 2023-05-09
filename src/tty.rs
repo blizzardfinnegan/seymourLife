@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, io::{BufReader, BufRead}};
 use once_cell::sync::Lazy;
 use serialport::{SerialPortInfo, SerialPort};
 use derivative::Derivative;
@@ -36,7 +36,7 @@ pub enum Response{
     TempSuccess,
     LoginPrompt,
     DebugMenu,
-    DecodeError,
+    Rebooting,
     Other,
 }
 
@@ -64,8 +64,7 @@ const RESPONSE_MAP:Lazy<HashMap<&str,Response>> = Lazy::new(||HashMap::from([
     ("Temp: 0",Response::TempFailed),
     ("Temp:",Response::TempSuccess),
     (">",Response::DebugMenu),
-    ("[",Response::Other),
-    ("",Response::DecodeError),
+    ("[",Response::Rebooting),
 ]));
 
 pub struct TTY{
@@ -88,16 +87,22 @@ impl TTY{
         return self.tty.write(COMMAND_MAP.get(&command).unwrap().as_bytes()).unwrap() > 0;
     }
 
-    pub fn read_from_device(&mut self,break_char:&str) -> Response {
-        let mut buf: String = Default::default();
-        _ = self.tty.read_to_string(&mut buf);
-        {
-            for response in RESPONSE_MAP.keys(){
-                if buf.contains(response){
-                    return *RESPONSE_MAP.get(response).unwrap_or(&Response::Other);
+    pub fn read_from_device(&mut self,break_char:Option<&str>) -> Response {
+        let internal_break_char = break_char.unwrap_or(">").as_bytes()[0];
+        let mut reader = BufReader::new(&mut self.tty);
+        let mut read_buffer: Vec<u8> = Vec::new();
+        let read_result = reader.read_until(internal_break_char, &mut read_buffer).unwrap_or(0);
+        if read_result > 0 {
+            let read_string:String = String::from_utf8_lossy(read_buffer.as_slice()).to_string();
+            for possible_response in RESPONSE_MAP.keys(){
+                if read_string.contains(possible_response){
+                    return *RESPONSE_MAP.get(*possible_response).unwrap_or(&Response::Other);
                 }
             }
             return Response::Other;
         }
+        else {
+            return Response::Other;
+        };
     }
 }
