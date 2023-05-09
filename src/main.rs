@@ -1,3 +1,4 @@
+use log::error;
 pub mod log_facade;
 pub mod tty;
 pub mod gpio_facade;
