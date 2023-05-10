@@ -1,6 +1,6 @@
-use std::{collections::HashMap, io::{BufReader, BufRead}};
+use std::{collections::HashMap, io::{BufReader, BufRead, Write}};
 use once_cell::sync::Lazy;
-use serialport::{SerialPortInfo, SerialPort};
+use serialport::{SerialPortInfo, TTYPort};
 use derivative::Derivative;
 
 pub const BAUD_RATE:u32 = 115200;
@@ -68,7 +68,7 @@ const RESPONSE_MAP:Lazy<HashMap<&str,Response>> = Lazy::new(||HashMap::from([
 ]));
 
 pub struct TTY{
-    tty: Box<dyn SerialPort>
+    tty: Box<TTYPort>
 }
 
 impl TTY{
@@ -78,13 +78,13 @@ impl TTY{
         }
         else {
             return TTY { 
-                tty: serialport::new(serial_location, BAUD_RATE).open().unwrap()
+                tty: Box::new(TTYPort::open(&serialport::new(serial_location, BAUD_RATE)).unwrap())
             };
         }
     }
 
     pub fn write_to_device(&mut self,command:Command) -> bool {
-        return self.tty.write(COMMAND_MAP.get(&command).unwrap().as_bytes()).unwrap() > 0;
+        return self.tty.write_all(COMMAND_MAP.get(&command).unwrap().as_bytes()).is_ok();
     }
 
     pub fn read_from_device(&mut self,break_char:Option<&str>) -> Response {

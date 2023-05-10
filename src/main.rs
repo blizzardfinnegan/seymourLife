@@ -2,13 +2,13 @@
 use log::{warn,error,debug,info,trace};
 use serialport;
 use crate::serialport::SerialPortInfo;
-use seymour_poc_rust::{device, tty,log_facade,gpio_facade::{Relay, self, GpioFacade}, tty::TTY};
+use seymour_poc_rust::{device, tty,log_facade,gpio_facade::GpioPins, tty::TTY};
 use std::io::{stdin,stdout,Write};
 
 #[allow(unused_imports)]
 use std::{thread, time::Duration};
 
-fn int_input_filtering(prompt:Option<&str>) -> i64{
+fn int_input_filtering(prompt:Option<&str>) -> u64{
     let internal_prompt = prompt.unwrap_or(">>>");
     let mut user_input:String = String::new();
     print!("{}",internal_prompt);
@@ -20,7 +20,7 @@ fn int_input_filtering(prompt:Option<&str>) -> i64{
     if let Some('\r')=user_input.chars().next_back() {
         user_input.pop();
     }
-    return user_input.parse().unwrap_or(-1);
+    return user_input.parse().unwrap_or(0);
 }
 
 fn input_filtering(prompt:Option<&str>) -> String{
@@ -38,9 +38,9 @@ fn input_filtering(prompt:Option<&str>) -> String{
     return user_input;
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main(){
     log_facade::setup_logs().unwrap();
-    let mut gpio = GpioFacade::new();
+    let gpio = &mut GpioPins::new();
     let available_ttys:Vec<SerialPortInfo> = tty::AVAILABLE_TTYS.clone();
     let mut possible_devices:Vec<Option<device::Device>> = Vec::new();
     for possible_tty in available_ttys.to_vec(){
@@ -73,14 +73,31 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         device.brighten_screen()
             .set_serial(&input_filtering(Some("Enter the serial of the device with the bright screen: ")).to_string())
         .darken_screen();
-        let unassigned_relays:&Vec<Box<Relay>> = gpio.get_unassigned_relays();
-        for relay in unassigned_relays.into_iter(){
-            _ = &relay.high();
+        let mut unassigned_addresses:Vec<u8> = gpio.get_unassigned_addresses().to_vec();
+        for address in unassigned_addresses.iter_mut(){
+            device.set_pin_address(*address).start_temp();
             if device.is_temp_running(){
-                device.set_gpio(**relay);
+                device.stop_temp();
+                break;
+            }
+            else{
+                device.stop_temp();
             }
         }
     }
 
-    Ok(())
+    let mut iteration_count:u64 = 0;
+    while iteration_count < 1{
+        iteration_count = int_input_filtering(Some("Enter the number of iterations to complete: "));
+    }
+
+    while let Some(mut device) = devices.pop(){
+        thread::spawn(move||{
+            for i in 1..=iteration_count{
+                println!("Starting iteration {} of {} for device {}...",
+                               i,iteration_count,device.get_serial());
+                device.test_cycle(None, None);
+            }
+        }).join().unwrap();
+    }
 }

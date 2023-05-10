@@ -1,9 +1,10 @@
 use std::{fs::{self, File}, path::Path, io::{BufReader, BufRead, BufWriter, Write}, thread, time::Duration};
-use crate::{tty, gpio_facade::Relay};
+use crate::tty;
+use rppal::gpio::Gpio;
 
 const BOOT_TIME:Duration = Duration::new(60, 0);
-const BP_START:Duration = Duration::new(60, 0);
-const BP_RUN:Duration = Duration::new(60, 0);
+const BP_START:Duration = Duration::new(3, 0);
+const BP_RUN:Duration = Duration::new(75, 0);
 const REBOOTS_SECTION: &str = "Reboots: ";
 const BP_SECTION: &str = "Successful BP tests: ";
 const TEMP_SECTION: &str = "Successful temp tests: ";
@@ -20,7 +21,8 @@ pub enum State{
 pub struct Device{
     usb_tty: tty::TTY,
     output_file: Option<File>,
-    pin: Option<&'static mut Relay>,
+    gpio: rppal::gpio::Gpio,
+    pin: Option<u8>,
     serial: String,
     current_state: State,
     reboots: u64,
@@ -65,6 +67,7 @@ impl Device{
     pub fn new(usb_port:tty::TTY) -> Self{
         let mut output = Self{
             usb_tty: usb_port,
+            gpio: Gpio::new().unwrap(),
             pin: None,
             output_file: None,
             serial: UNINITIALISED_SERIAL.to_string(),
@@ -180,19 +183,22 @@ impl Device{
         self.load_values();
         return self;
     }
-    pub fn set_gpio(&mut self, gpio_pin:Relay) -> &mut Self{
-        self.pin = Some(&mut gpio_pin);
+    pub fn get_serial(&mut self) -> &str{
+        &self.serial
+    }
+    pub fn set_pin_address(&mut self, address:u8) -> &mut Self{
+        self.pin = Some(address);
         return self;
     }
     pub fn start_temp(&mut self) -> &mut Self {
-        if let Some(ref mut gpio_pin) = self.pin{
-            gpio_pin.high();
+        if let Some(_) = self.pin {
+            self.gpio.get(self.pin.unwrap()).unwrap().into_output().set_high();
         }
         return self;
     }
     pub fn stop_temp(&mut self) -> &mut Self {
-        if let Some(ref mut gpio_pin) = self.pin{
-            gpio_pin.low();
+        if let Some(_) = self.pin {
+            self.gpio.get(self.pin.unwrap()).unwrap().into_output().set_low();
         }
         return self;
     }
