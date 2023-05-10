@@ -1,6 +1,6 @@
 use std::{fs::{self, File}, path::Path, io::{BufReader, BufRead, BufWriter, Write}, thread, time::Duration};
 use crate::tty;
-use rppal::gpio::Gpio;
+use rppal::gpio::{Gpio,OutputPin};
 
 const BOOT_TIME:Duration = Duration::new(60, 0);
 const BP_START:Duration = Duration::new(3, 0);
@@ -10,7 +10,7 @@ const BP_SECTION: &str = "Successful BP tests: ";
 const TEMP_SECTION: &str = "Successful temp tests: ";
 const OUTPUT_FOLDER: &str = "output/";
 const UNINITIALISED_SERIAL: &str = "uninitialised";
-#[derive(PartialEq)]
+#[derive(PartialEq,Debug)]
 pub enum State{
     LoginPrompt,
     DebugMenu,
@@ -18,11 +18,13 @@ pub enum State{
     BrightnessMenu
 }
 
+#[derive(Debug)]
 pub struct Device{
     usb_tty: tty::TTY,
     output_file: Option<File>,
     gpio: rppal::gpio::Gpio,
-    pin: Option<u8>,
+    address: Option<u8>,
+    pin: Option<OutputPin>,
     serial: String,
     current_state: State,
     reboots: u64,
@@ -68,6 +70,7 @@ impl Device{
         let mut output = Self{
             usb_tty: usb_port,
             gpio: Gpio::new().unwrap(),
+            address: None,
             pin: None,
             output_file: None,
             serial: UNINITIALISED_SERIAL.to_string(),
@@ -86,6 +89,7 @@ impl Device{
                 State::LoginPrompt => return self,
                 State::DebugMenu | State::LifecycleMenu | State::BrightnessMenu => {
                     self.usb_tty.write_to_device(tty::Command::Quit);
+                    _ = self.usb_tty.read_from_device(None);
                     self.current_state = State::LoginPrompt;
                     self.reboots+=1;
                     return self;
@@ -101,16 +105,20 @@ impl Device{
                 State::BrightnessMenu => return self,
                 State::DebugMenu => {
                     self.usb_tty.write_to_device(tty::Command::LifecycleMenu);
+                    _ = self.usb_tty.read_from_device(None);
                     self.current_state = State::LifecycleMenu;
-                    return self;
                 },
                 State::LifecycleMenu =>{
                     self.usb_tty.write_to_device(tty::Command::BrightnessMenu);
+                    _ = self.usb_tty.read_from_device(None);
                     self.current_state = State::BrightnessMenu;
+                    return self;
                 },
                 State::LoginPrompt => {
                     self.usb_tty.write_to_device(tty::Command::Login);
+                    _ = self.usb_tty.read_from_device(None);
                     self.usb_tty.write_to_device(tty::Command::DebugMenu);
+                    _ = self.usb_tty.read_from_device(None);
                     self.current_state = State::DebugMenu;
                 },
             };
@@ -124,15 +132,19 @@ impl Device{
                 State::DebugMenu => return self,
                 State::BrightnessMenu => {
                     self.usb_tty.write_to_device(tty::Command::UpMenuLevel);
+                    _ = self.usb_tty.read_from_device(None);
                     self.current_state = State::LifecycleMenu;
                 },
                 State::LifecycleMenu =>{
                     self.usb_tty.write_to_device(tty::Command::UpMenuLevel);
+                    _ = self.usb_tty.read_from_device(None);
                     self.current_state = State::BrightnessMenu;
                 },
                 State::LoginPrompt => {
                     self.usb_tty.write_to_device(tty::Command::Login);
+                    _ = self.usb_tty.read_from_device(None);
                     self.usb_tty.write_to_device(tty::Command::DebugMenu);
+                    _ = self.usb_tty.read_from_device(None);
                     self.current_state = State::DebugMenu;
                     return self;
                 },
@@ -146,16 +158,21 @@ impl Device{
                 State::LifecycleMenu => return self,
                 State::DebugMenu => {
                     self.usb_tty.write_to_device(tty::Command::LifecycleMenu);
+                    _ = self.usb_tty.read_from_device(None);
                     self.current_state = State::LifecycleMenu;
                     return self;
                 },
                 State::BrightnessMenu =>{
                     self.usb_tty.write_to_device(tty::Command::UpMenuLevel);
-                    self.current_state = State::BrightnessMenu;
+                    _ = self.usb_tty.read_from_device(None);
+                    self.current_state = State::LifecycleMenu;
+                    return self;
                 },
                 State::LoginPrompt => {
                     self.usb_tty.write_to_device(tty::Command::Login);
+                    _ = self.usb_tty.read_from_device(None);
                     self.usb_tty.write_to_device(tty::Command::DebugMenu);
+                    _ = self.usb_tty.read_from_device(None);
                     self.current_state = State::DebugMenu;
                 },
             };
@@ -187,18 +204,19 @@ impl Device{
         &self.serial
     }
     pub fn set_pin_address(&mut self, address:u8) -> &mut Self{
-        self.pin = Some(address);
+        self.address = Some(address);
+        self.pin = Some(self.gpio.get(self.address.unwrap()).unwrap().into_output());
         return self;
     }
     pub fn start_temp(&mut self) -> &mut Self {
-        if let Some(_) = self.pin {
-            self.gpio.get(self.pin.unwrap()).unwrap().into_output().set_high();
+        if let Some(ref mut pin) = self.pin {
+            pin.set_high();
         }
         return self;
     }
     pub fn stop_temp(&mut self) -> &mut Self {
-        if let Some(_) = self.pin {
-            self.gpio.get(self.pin.unwrap()).unwrap().into_output().set_low();
+        if let Some(ref mut pin) = self.pin {
+            pin.set_low();
         }
         return self;
     }

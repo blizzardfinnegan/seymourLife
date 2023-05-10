@@ -16,7 +16,7 @@ pub fn setup_logs() -> Result<(), fern::InitError>{
             fern::Dispatch::new()
                 .level(log::LevelFilter::Trace)
                 .chain(fern::log_file(
-                    format!("logs\\output-{0}.log",
+                    format!("logs/output-{0}.log",
                     chrono_now.format("%Y-%m-%d_%H.%M.%S").to_string()
                     ))?),
         )
