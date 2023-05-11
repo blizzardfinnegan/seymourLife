@@ -45,30 +45,33 @@ fn main(){
     for possible_tty in available_ttys.to_vec(){
         tty_test_threads.push(thread::spawn(move ||{
             let mut possible_port = TTY::new(possible_tty.port_name.to_string());
-            println!("Testing port {}. This may take a moment...",possible_tty.port_name);
+            log::info!("Testing port {}. This may take a moment...",possible_tty.port_name);
             possible_port.write_to_device(tty::Command::Newline);
             let response = possible_port.read_from_device(Some(":"));
-            if response != tty::Response::Other{
-                println!("{} is valid port!",possible_tty.port_name);
-                Some(device::Device::new(possible_port))
+            if response != tty::Response::Empty{
+                log::debug!("{} is valid port!",possible_tty.port_name);
+                Some(device::Device::new(possible_port,Some(response)))
             }
             else{
                 None
             }
-        }));//.join().unwrap());
+        }));
     }
     for thread in tty_test_threads{
-        possible_devices.push(thread.join().unwrap());
+        let output = thread.join().unwrap_or_else(|x|{log::trace!("{:?}",x); None});
+        possible_devices.push(output);
     }
+
     let mut devices:Vec<device::Device> = Vec::new();
     for possible_device in possible_devices.into_iter(){
         if let Some(device) = possible_device{
             devices.push(device);
         }
     }
-    println!("Number of devices detected: {}",devices.len());
 
-    println!("Dimming all screens...");
+    log::info!("Number of devices detected: {}",devices.len());
+
+    log::info!("Dimming all screens...");
     for device in devices.iter_mut(){
         device.darken_screen();
     }
@@ -77,11 +80,14 @@ fn main(){
         device.brighten_screen()
             .set_serial(&input_filtering(Some("Enter the serial of the device with the bright screen: ")).to_string())
         .darken_screen();
-        let mut unassigned_addresses:Vec<u8> = gpio.get_unassigned_addresses().to_vec();
-        for address in unassigned_addresses.iter_mut(){
-            device.set_pin_address(*address).start_temp();
+        let unassigned_addresses:Vec<u8> = gpio.get_unassigned_addresses().to_vec();
+        log::debug!("Number of unassigned addresses: {}",unassigned_addresses.len());
+        for address in unassigned_addresses{
+            device.set_pin_address(address).start_temp();
+            thread::sleep(std::time::Duration::new(3,0));
             if device.is_temp_running(){
                 device.stop_temp();
+                gpio.remove_address(address);
                 break;
             }
             else{
@@ -99,7 +105,7 @@ fn main(){
     while let Some(mut device) = devices.pop(){
         iteration_threads.push(thread::spawn(move||{
             for i in 1..=iteration_count{
-                println!("Starting iteration {} of {} for device {}...",
+                log::info!("Starting iteration {} of {} for device {}...",
                                i,iteration_count,device.get_serial());
                 device.test_cycle(None, None);
             }

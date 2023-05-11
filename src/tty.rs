@@ -1,4 +1,4 @@
-use std::{collections::HashMap, io::{BufReader, BufRead, Write}, time::Duration};
+use std::{collections::HashMap, io::{BufReader, Write, Read}, time::Duration};
 use once_cell::sync::Lazy;
 use serialport::{SerialPortInfo,SerialPort};
 use derivative::Derivative;
@@ -35,16 +35,18 @@ pub enum Response{
     TempFailed,
     TempSuccess,
     LoginPrompt,
-    DebugMenu,
+    DebugMenuReady,
+    DebugMenuWithContinuedMessage,
     Rebooting,
     Other,
+    Empty,
 }
 
 
 const COMMAND_MAP:Lazy<HashMap<Command,&str>> = Lazy::new(||HashMap::from([
     (Command::Quit, "q\n"),
-    (Command::StartBP, "c"),
-    (Command::CheckBPState, "C"),
+    (Command::StartBP, "N"),
+    (Command::CheckBPState, "n"),
     (Command::LifecycleMenu, "L"),
     (Command::BrightnessMenu, "B"),
     (Command::BrightnessHigh, "0"),
@@ -53,21 +55,22 @@ const COMMAND_MAP:Lazy<HashMap<Command,&str>> = Lazy::new(||HashMap::from([
     (Command::UpMenuLevel, "\\"),
     (Command::Login,"root\n"),
     (Command::RedrawMenu,"?"),
-    (Command::DebugMenu,"python3 -m debugmenu; shutdown -r now\n"),
+    (Command::DebugMenu," python3 -m debugmenu; shutdown -r now\n"),
     (Command::Newline,"\n"),
 ]));
 
-const RESPONSE_MAP:Lazy<HashMap<&str,Response>> = Lazy::new(||HashMap::from([
+const RESPONSES:[(&str,Response);10] = [
+    ("login:",Response::LoginPrompt),
     ("Password:",Response::PasswordPrompt),
     ("root@",Response::ShellPrompt),
     ("Check NIBP In Progress: True",Response::BPOn),
     ("Check NIBP In Progress: False",Response::BPOff),
     ("Temp: 0",Response::TempFailed),
     ("Temp:",Response::TempSuccess),
-    (">",Response::DebugMenu),
+    ("> ",Response::DebugMenuWithContinuedMessage),
+    (">",Response::DebugMenuReady),
     ("[",Response::Rebooting),
-    ("login:",Response::LoginPrompt),
-]));
+];
 
 pub struct TTY{
     tty: Box<dyn SerialPort>
@@ -87,39 +90,35 @@ impl TTY{
         }
         else {
             return TTY { 
-                tty: serialport::new(serial_location,BAUD_RATE).timeout(Duration::new(3, 0)).open().unwrap()
+                tty: serialport::new(serial_location,BAUD_RATE).timeout(Duration::new(1, 0)).open().unwrap()
             };
         }
     }
 
     pub fn write_to_device(&mut self,command:Command) -> bool {
-        println!("writing {:?} to tty {}...", command, self.tty.name().unwrap_or("unknown".to_string()));
+        log::debug!("writing {:?} to tty {}...", command, self.tty.name().unwrap_or("unknown".to_string()));
         let output = self.tty.write_all(COMMAND_MAP.get(&command).unwrap().as_bytes()).is_ok();
         _ = self.tty.flush();
         return output;
     }
 
-    pub fn read_from_device(&mut self,break_char:Option<&str>) -> Response {
-        let mut internal_break_char = break_char.unwrap_or(">").as_bytes();
-        if internal_break_char.len() == 0{
-            internal_break_char = ">".as_bytes();
-        }
+    pub fn read_from_device(&mut self,_break_char:Option<&str>) -> Response {
         let mut reader = BufReader::new(&mut self.tty);
         let mut read_buffer: Vec<u8> = Vec::new();
-        let read_result = reader.read_until(internal_break_char[0], &mut read_buffer).unwrap_or(0);
-        println!("Successfully read {:?} from tty {}",String::from_utf8_lossy(read_buffer.as_slice()),self.tty.name().unwrap_or("unknown".to_string()));
-        if read_result > 0 {
-            let read_string:String = String::from_utf8_lossy(read_buffer.as_slice()).to_string();
-            for possible_response in RESPONSE_MAP.keys(){
-                if read_string.contains(possible_response){
-                   println!("{:?} matches pattern {:?}",read_string,RESPONSE_MAP.get(*possible_response).unwrap());
-                    return *RESPONSE_MAP.get(*possible_response).unwrap_or(&Response::Other);
+        _ = reader.read_to_end(&mut read_buffer);
+        if read_buffer.len() > 0 {
+            let read_line:String = String::from_utf8_lossy(read_buffer.as_slice()).to_string();
+            for (string,enum_value) in RESPONSES{
+                if read_line.contains(string){
+                   log::debug!("Successful read of {:?} from tty {}, which matches pattern {:?}",read_line,self.tty.name().unwrap_or("unknown shell".to_string()),enum_value);
+                    return enum_value;
                 }
             }
             return Response::Other;
         }
         else {
-            return Response::Other;
+            log::debug!("Read an empty string. Possible read error.");
+            return Response::Empty;
         };
     }
 }

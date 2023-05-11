@@ -14,7 +14,7 @@ impl GpioPins{
     }
 
     pub fn remove_address(&mut self, address:u8) -> () {
-        self.unassigned_addresses.retain(|&x| x != address);
+        self.unassigned_addresses.retain(|x| *x != address);
     }
     
     pub fn get_unassigned_addresses(&mut self) -> &mut Vec<u8>{
