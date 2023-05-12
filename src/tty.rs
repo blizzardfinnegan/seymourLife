@@ -3,7 +3,8 @@ use once_cell::sync::Lazy;
 use serialport::{SerialPortInfo,SerialPort};
 use derivative::Derivative;
 
-pub const BAUD_RATE:u32 = 115200;
+const BAUD_RATE:u32 = 115200;
+const SERIAL_READ_TIMEOUT: std::time::Duration = Duration::from_millis(500);
 
 pub const AVAILABLE_TTYS: Lazy<Vec<SerialPortInfo>> = Lazy::new(||serialport::available_ports().unwrap());
 
@@ -90,7 +91,7 @@ impl TTY{
         }
         else {
             return TTY { 
-                tty: serialport::new(serial_location,BAUD_RATE).timeout(Duration::new(1, 0)).open().unwrap()
+                tty: serialport::new(serial_location,BAUD_RATE).timeout(SERIAL_READ_TIMEOUT).open().unwrap()
             };
         }
     }

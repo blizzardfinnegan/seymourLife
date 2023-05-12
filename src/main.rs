@@ -1,8 +1,6 @@
-#[allow(unused_imports)]
-use log::{warn,error,debug,info,trace};
 use serialport;
 use crate::serialport::SerialPortInfo;
-use seymour_poc_rust::{device, tty,log_facade,gpio_facade::GpioPins, tty::TTY};
+use seymour_poc_rust::{device::Device, tty::{self,TTY,Response},log_facade,gpio_facade::GpioPins};
 use std::io::{stdin,stdout,Write};
 use std::thread::{self, JoinHandle};
 
@@ -33,24 +31,25 @@ fn input_filtering(prompt:Option<&str>) -> String{
     if let Some('\r')=user_input.chars().next_back() {
         user_input.pop();
     }
+    log::debug!("{}:{}",internal_prompt,user_input);
     return user_input;
 }
 
 fn main(){
-    log_facade::setup_logs().unwrap();
+    _ = log_facade::setup_logs();
     let gpio = &mut GpioPins::new();
     let available_ttys:Vec<SerialPortInfo> = tty::AVAILABLE_TTYS.clone();
-    let mut possible_devices:Vec<Option<device::Device>> = Vec::new();
-    let mut tty_test_threads:Vec<JoinHandle<Option<device::Device>>> = Vec::new();
+    let mut possible_devices:Vec<Option<Device>> = Vec::new();
+    let mut tty_test_threads:Vec<JoinHandle<Option<Device>>> = Vec::new();
     for possible_tty in available_ttys.to_vec(){
         tty_test_threads.push(thread::spawn(move ||{
             let mut possible_port = TTY::new(possible_tty.port_name.to_string());
             log::info!("Testing port {}. This may take a moment...",possible_tty.port_name);
             possible_port.write_to_device(tty::Command::Newline);
             let response = possible_port.read_from_device(Some(":"));
-            if response != tty::Response::Empty{
+            if response != Response::Empty{
                 log::debug!("{} is valid port!",possible_tty.port_name);
-                Some(device::Device::new(possible_port,Some(response)))
+                Some(Device::new(possible_port,Some(response)))
             }
             else{
                 None
@@ -62,7 +61,7 @@ fn main(){
         possible_devices.push(output);
     }
 
-    let mut devices:Vec<device::Device> = Vec::new();
+    let mut devices:Vec<Device> = Vec::new();
     for possible_device in possible_devices.into_iter(){
         if let Some(device) = possible_device{
             devices.push(device);
@@ -80,11 +79,9 @@ fn main(){
         device.brighten_screen()
             .set_serial(&input_filtering(Some("Enter the serial of the device with the bright screen: ")).to_string())
         .darken_screen();
-        let unassigned_addresses:Vec<u8> = gpio.get_unassigned_addresses().to_vec();
-        log::debug!("Number of unassigned addresses: {}",unassigned_addresses.len());
-        for address in unassigned_addresses{
+        log::debug!("Number of unassigned addresses: {}",gpio.get_unassigned_addresses().len());
+        for &address in gpio.get_unassigned_addresses(){
             device.set_pin_address(address).start_temp();
-            thread::sleep(std::time::Duration::new(3,0));
             if device.is_temp_running(){
                 device.stop_temp();
                 gpio.remove_address(address);

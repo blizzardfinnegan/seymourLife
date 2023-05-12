@@ -22,7 +22,7 @@ pub fn setup_logs() -> Result<(), fern::InitError>{
                 .level(log::LevelFilter::Trace)
                 .chain(fern::log_file(
                     format!("logs/{0}.log",
-                    chrono_now.format("%Y-%m-%d_%H.%M.%S").to_string()
+                    chrono_now.format("%Y-%m-%d_%H.%M").to_string()
                     ))?),
         )
         .chain(
