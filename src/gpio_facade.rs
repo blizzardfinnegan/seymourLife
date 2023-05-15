@@ -8,8 +8,8 @@ impl GpioPins{
     pub fn new() -> Self {
         let mut output = Self { unassigned_addresses:Vec::new() };
         for pin in RELAY_ADDRESSES.iter(){
-            let gpio_object = rppal::gpio::Gpio::new();
-            let pin_object = gpio_object.new.get(pin).unwrap().into_output();
+            let gpio_object = rppal::gpio::Gpio::new().unwrap();
+            let pin_object = gpio_object.get(pin).unwrap().into_output();
             pin_object.set_low();
             output.unassigned_addresses.push(*pin);
         }
