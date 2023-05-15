@@ -1,5 +1,3 @@
-use serialport;
-use crate::serialport::SerialPortInfo;
 use seymour_poc_rust::{device::Device, tty::{self,TTY,Response},log_facade,gpio_facade::GpioPins};
 use std::io::{stdin,stdout,Write};
 use std::thread::{self, JoinHandle};

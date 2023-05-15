@@ -317,7 +317,7 @@ impl Device{
         //Re-open serial connection?
         _ = self.usb_tty.read_from_device(Some("["));
         for bp_count in 1..=local_bp_cycles{
-            log::info!("Running bp {} on device {} ...",bp_count,self.serial);
+            log::info!("Running bp {} on device {} ...",self.bps,self.serial);
             self.start_bp();
             let bp_start = self.is_bp_running();
             log::trace!("{:?}",bp_start);
@@ -331,7 +331,7 @@ impl Device{
             }
         }
         for temp_count in 1..=local_temp_cycles{
-            log::info!("Running temp {} on device {} ...",temp_count,self.serial);
+            log::info!("Running temp {} on device {} ...",self.temps,self.serial);
             let temp_start = self.start_temp().is_temp_running();
             let temp_end = self.stop_temp().is_temp_running();
             if temp_start != temp_end {
@@ -340,7 +340,7 @@ impl Device{
                 self.save_values();
             }
         }
-        log::info!("Rebooting {}",self.serial);
+        log::info!("Rebooting {} for the {}th time",self.serial, self.reboots);
         self.reboot();
         self.reboots += 1;
         self.save_values();
