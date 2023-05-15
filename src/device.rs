@@ -314,9 +314,8 @@ impl Device{
         self.go_to_login_prompt();
         thread::sleep(BOOT_TIME);
         self.go_to_lifecycle_menu();
-        //Re-open serial connection?
         _ = self.usb_tty.read_from_device(Some("["));
-        for bp_count in 1..=local_bp_cycles{
+        for _bp_count in 1..=local_bp_cycles{
             log::info!("Running bp {} on device {} ...",self.bps,self.serial);
             self.start_bp();
             let bp_start = self.is_bp_running();
@@ -330,7 +329,7 @@ impl Device{
                 self.save_values();
             }
         }
-        for temp_count in 1..=local_temp_cycles{
+        for _temp_count in 1..=local_temp_cycles{
             log::info!("Running temp {} on device {} ...",self.temps,self.serial);
             let temp_start = self.start_temp().is_temp_running();
             let temp_end = self.stop_temp().is_temp_running();
