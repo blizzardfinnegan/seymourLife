@@ -38,17 +38,17 @@ fn input_filtering(prompt:Option<&str>) -> String{
 fn main(){
     _ = log_facade::setup_logs();
     let gpio = &mut GpioPins::new();
-    let available_ttys:Vec<SerialPortInfo> = tty::AVAILABLE_TTYS.clone();
+    let available_ttys = std::fs::read_dir("/dev/serial/by-id").unwrap();
     let mut possible_devices:Vec<Option<Device>> = Vec::new();
     let mut tty_test_threads:Vec<JoinHandle<Option<Device>>> = Vec::new();
     for possible_tty in available_ttys.to_vec(){
         tty_test_threads.push(thread::spawn(move ||{
-            let mut possible_port = TTY::new(possible_tty.port_name.to_string());
-            log::info!("Testing port {}. This may take a moment...",possible_tty.port_name);
+            let mut possible_port = TTY::new(possible_tty.as_ref().unwrap().path().to_str().as_ref());
+            log::info!("Testing port {}. This may take a moment...",possible_tty.as_ref().unwrap().path().to_string_lossy());
             possible_port.write_to_device(tty::Command::Newline);
             let response = possible_port.read_from_device(Some(":"));
             if response != Response::Empty{
-                log::debug!("{} is valid port!",possible_tty.port_name);
+                log::debug!("{} is valid port!",possible_tty.as_ref().unwrap().path().to_string_lossy());
                 Some(Device::new(possible_port,Some(response)))
             }
             else{

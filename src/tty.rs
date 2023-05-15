@@ -85,7 +85,7 @@ impl std::fmt::Debug for TTY{
 }
 
 impl TTY{
-    pub fn new(serial_location:String) -> Self{
+    pub fn new(serial_location:&str) -> Self{
         if !AVAILABLE_TTYS.iter().any(|tty_info| tty_info.port_name == serial_location ) {
             panic!("Invalid TTY init string!");
         }
