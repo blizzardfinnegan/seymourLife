@@ -86,20 +86,16 @@ impl std::fmt::Debug for TTY{
 
 impl TTY{
     pub fn new(serial_location:&str) -> Self{
-        if !AVAILABLE_TTYS.iter().any(|tty_info| tty_info.port_name == serial_location ) {
-            panic!("Invalid TTY init string!");
-        }
-        else {
-            return TTY { 
+            TTY { 
                 tty: serialport::new(serial_location,BAUD_RATE).timeout(SERIAL_READ_TIMEOUT).open().unwrap()
-            };
-        }
+            }
     }
 
     pub fn write_to_device(&mut self,command:Command) -> bool {
         log::debug!("writing {:?} to tty {}...", command, self.tty.name().unwrap_or("unknown".to_string()));
         let output = self.tty.write_all(COMMAND_MAP.get(&command).unwrap().as_bytes()).is_ok();
         _ = self.tty.flush();
+        std::thread::sleep(std::time::Duration::from_millis(500));
         return output;
     }
 

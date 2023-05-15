@@ -41,9 +41,9 @@ fn main(){
     let available_ttys = std::fs::read_dir("/dev/serial/by-id").unwrap();
     let mut possible_devices:Vec<Option<Device>> = Vec::new();
     let mut tty_test_threads:Vec<JoinHandle<Option<Device>>> = Vec::new();
-    for possible_tty in available_ttys.to_vec(){
+    for possible_tty in available_ttys.into_iter(){
         tty_test_threads.push(thread::spawn(move ||{
-            let mut possible_port = TTY::new(possible_tty.as_ref().unwrap().path().to_str().as_ref());
+            let mut possible_port = TTY::new(possible_tty.as_ref().unwrap().path().to_str().unwrap());
             log::info!("Testing port {}. This may take a moment...",possible_tty.as_ref().unwrap().path().to_string_lossy());
             possible_port.write_to_device(tty::Command::Newline);
             let response = possible_port.read_from_device(Some(":"));
