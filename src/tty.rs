@@ -118,6 +118,9 @@ impl TTY{
         }
         else {
             log::debug!("Read an empty string. Possible read error.");
+            //Due to a linux kernel power-saving setting that is overly complicated to fix,
+            //Serial connections will drop for a moment before re-opening, at seemingly-random
+            //intervals. The below is an attempt to catch and recover from this behaviour.
             self.failed_read_count += 1;
             if self.failed_read_count >= 15{
                 self.failed_read_count = 0;
