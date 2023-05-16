@@ -89,7 +89,7 @@ impl TTY{
     pub fn new(serial_location:&str) -> Self{
             TTY { 
                 tty: serialport::new(serial_location,BAUD_RATE).timeout(SERIAL_READ_TIMEOUT).open().expect("Unable to open serial connnection!"),
-                failed_read_count: u8
+                failed_read_count: 0
             }
     }
 
@@ -120,7 +120,7 @@ impl TTY{
             log::debug!("Read an empty string. Possible read error.");
             self.failed_read_count += 1;
             if self.failed_read_count >= 15{
-                self.failed_read_count == 0;
+                self.failed_read_count = 0;
                 let tty_location = self.tty.name().expect("Unable to read tty name!");
                 self.tty = serialport::new(tty_location,BAUD_RATE).timeout(SERIAL_READ_TIMEOUT).open().expect("Unable to open serial connection!");
                 return self.read_from_device(_break_char);
