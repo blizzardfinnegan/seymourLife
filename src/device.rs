@@ -52,7 +52,8 @@ impl Device{
                     log::trace!("{:?}",line);
                     let section_and_data:Vec<&str> = line.split(": ").collect();
                     let section = section_and_data[0];
-                    let value:u64 = section_and_data[1].parse().unwrap();
+                    let value:u64 = section_and_data[1].trim().parse().unwrap();
+                    log::trace!("{:?} value: [{:?}]",section,value);
                     match section {
                         REBOOTS_SECTION => {
                             self.reboots = value;
@@ -316,7 +317,7 @@ impl Device{
         self.go_to_lifecycle_menu();
         _ = self.usb_tty.read_from_device(Some("["));
         for _bp_count in 1..=local_bp_cycles{
-            log::info!("Running bp {} on device {} ...",self.bps,self.serial);
+            log::info!("Running bp {} on device {} ...",(self.bps+1),self.serial);
             self.start_bp();
             let bp_start = self.is_bp_running();
             log::trace!("{:?}",bp_start);
@@ -330,7 +331,7 @@ impl Device{
             }
         }
         for _temp_count in 1..=local_temp_cycles{
-            log::info!("Running temp {} on device {} ...",self.temps,self.serial);
+            log::info!("Running temp {} on device {} ...",(self.temps+1),self.serial);
             let temp_start = self.start_temp().is_temp_running();
             let temp_end = self.stop_temp().is_temp_running();
             if temp_start != temp_end {
