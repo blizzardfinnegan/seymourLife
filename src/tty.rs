@@ -74,7 +74,8 @@ const RESPONSES:[(&str,Response);10] = [
 ];
 
 pub struct TTY{
-    tty: Box<dyn SerialPort>
+    tty: Box<dyn SerialPort>,
+    failed_read_count: u8
 }
 impl std::fmt::Debug for TTY{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result{
@@ -87,7 +88,8 @@ impl std::fmt::Debug for TTY{
 impl TTY{
     pub fn new(serial_location:&str) -> Self{
             TTY { 
-                tty: serialport::new(serial_location,BAUD_RATE).timeout(SERIAL_READ_TIMEOUT).open().unwrap()
+                tty: serialport::new(serial_location,BAUD_RATE).timeout(SERIAL_READ_TIMEOUT).open().expect("Unable to open serial connnection!"),
+                failed_read_count: 0
             }
     }
 
@@ -108,6 +110,7 @@ impl TTY{
             for (string,enum_value) in RESPONSES{
                 if read_line.contains(string){
                    log::debug!("Successful read of {:?} from tty {}, which matches pattern {:?}",read_line,self.tty.name().unwrap_or("unknown shell".to_string()),enum_value);
+                   self.failed_read_count = 0;
                     return enum_value;
                 }
             }
@@ -115,6 +118,16 @@ impl TTY{
         }
         else {
             log::debug!("Read an empty string. Possible read error.");
+            //Due to a linux kernel power-saving setting that is overly complicated to fix,
+            //Serial connections will drop for a moment before re-opening, at seemingly-random
+            //intervals. The below is an attempt to catch and recover from this behaviour.
+            self.failed_read_count += 1;
+            if self.failed_read_count >= 15{
+                self.failed_read_count = 0;
+                let tty_location = self.tty.name().expect("Unable to read tty name!");
+                self.tty = serialport::new(tty_location,BAUD_RATE).timeout(SERIAL_READ_TIMEOUT).open().expect("Unable to open serial connection!");
+                return self.read_from_device(_break_char);
+            }
             return Response::Empty;
         };
     }
