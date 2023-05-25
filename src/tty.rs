@@ -1,12 +1,11 @@
 use std::{collections::HashMap, io::{BufReader, Write, Read}, time::Duration};
 use once_cell::sync::Lazy;
-use serialport::{SerialPortInfo,SerialPort};
+use serialport::SerialPort;
 use derivative::Derivative;
 
 const BAUD_RATE:u32 = 115200;
 const SERIAL_READ_TIMEOUT: std::time::Duration = Duration::from_millis(500);
 
-pub const AVAILABLE_TTYS: Lazy<Vec<SerialPortInfo>> = Lazy::new(||serialport::available_ports().unwrap());
 
 #[derive(Eq,Derivative,Debug)]
 #[derivative(PartialEq, Hash)]
@@ -86,11 +85,16 @@ impl std::fmt::Debug for TTY{
 }
 
 impl TTY{
-    pub fn new(serial_location:&str) -> Self{
-            TTY { 
-                tty: serialport::new(serial_location,BAUD_RATE).timeout(SERIAL_READ_TIMEOUT).open().expect("Unable to open serial connnection!"),
+    pub fn new(serial_location:&str) -> Option<Self>{
+        let possible_tty = serialport::new(serial_location,BAUD_RATE).timeout(SERIAL_READ_TIMEOUT).open();
+        if let Ok(tty) = possible_tty{
+            Some(TTY { 
+                tty,
                 failed_read_count: 0
-            }
+            })
+        } else{
+            None
+        }
     }
 
     pub fn write_to_device(&mut self,command:Command) -> bool {

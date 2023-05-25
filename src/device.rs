@@ -32,7 +32,7 @@ pub struct Device{
 }
 
 impl Device{
-    fn load_values(&mut self) -> &mut Self {
+    fn load_values(&mut self) -> bool {
         if ! Path::new(&OUTPUT_FOLDER).is_dir(){
             _ = fs::create_dir(&OUTPUT_FOLDER);
         };
@@ -40,38 +40,61 @@ impl Device{
         let output_path = OUTPUT_FOLDER.to_owned() + &self.serial + ".txt";
         if ! Path::new(&output_path).exists(){
             log::debug!("Creating file {}",output_path);
-            self.output_file = Some(fs::File::create(&output_path).unwrap());
-            self.save_values();
+            let temp = fs::File::create(&output_path);
+            match temp{
+                Ok(file) => {
+                    self.output_file = Some(file);
+                    self.save_values();
+                }
+                Err(_) => {
+                    return false
+                }
+            }
         }
         else {
-            let file_contents = std::fs::read_to_string(output_path).unwrap();
-            let file_lines = file_contents.split("\n");
-            log::trace!("{:?}",file_contents);
-            for line in file_lines {
-                if line.len() > 0{
-                    log::trace!("{:?}",line);
-                    let section_and_data:Vec<&str> = line.split(": ").collect();
-                    let section = section_and_data[0];
-                    let value:u64 = section_and_data[1].trim().parse().unwrap();
-                    log::trace!("{:?} value: [{:?}]",section,value);
-                    match section {
-                        REBOOTS_SECTION => {
-                            self.reboots = value;
-                        },
-                        BP_SECTION => {
-                            self.bps = value;
-                        },
-                        TEMP_SECTION => {
-                            self.temps = value;
-                        },
-                        _ => ()
+            let temp = std::fs::read_to_string(output_path);
+            match temp{
+                Ok(file_contents) =>{
+                    let file_lines = file_contents.split("\n");
+                    log::trace!("{:?}",file_contents);
+                    for line in file_lines {
+                        if line.len() > 0{
+                            log::trace!("{:?}",line);
+                            let section_and_data:Vec<&str> = line.split(": ").collect();
+                            let section = section_and_data[0];
+                            let possible_value = section_and_data[1].trim().parse::<u64>();
+                            match possible_value{
+                                Ok(value) => {
+                                    log::trace!("{:?} value: [{:?}]",section,value);
+                                    match section {
+                                        REBOOTS_SECTION => {
+                                            self.reboots = value;
+                                        },
+                                        BP_SECTION => {
+                                            self.bps = value;
+                                        },
+                                        TEMP_SECTION => {
+                                            self.temps = value;
+                                        },
+                                        _ => ()
+                                    };
+                                }
+                                Err(_) => {
+                                    log::warn!("Unable to parse value [{}] into integer",section_and_data[1]);
+                                }
+                            }
+                        };
                     };
-                };
-            };
+                },
+                Err(error) => {
+                    log::warn!("Could not load from file!");
+                    log::debug!("{}",error);
+                }
+            }
         };
-        return self;
+        return true
     }
-    pub fn new(mut usb_port:TTY,response:Option<Response>) -> Self{
+    pub fn new(mut usb_port:TTY,response:Option<Response>) -> Result<Self,String>{
         let initial_state:State;
         match response{
             Some(response_value)=> {
@@ -93,20 +116,32 @@ impl Device{
             },
             None => initial_state = State::LoginPrompt
         };
-        let mut output = Self{
-            usb_tty: usb_port,
-            gpio: Gpio::new().unwrap(),
-            address: None,
-            pin: None,
-            output_file: None,
-            serial: UNINITIALISED_SERIAL.to_string(),
-            current_state: initial_state,
-            reboots: 0,
-            temps: 0,
-            bps: 0
-        };
-        output.load_values();
-        return output;
+        let temp = Gpio::new();
+        match temp{
+            Ok(gpio) =>{
+                let mut output = Self{
+                    usb_tty: usb_port,
+                    gpio,
+                    address: None,
+                    pin: None,
+                    output_file: None,
+                    serial: UNINITIALISED_SERIAL.to_string(),
+                    current_state: initial_state,
+                    reboots: 0,
+                    temps: 0,
+                    bps: 0
+                };
+                if !output.load_values(){
+                    log::warn!("Could not load values from file! File may be overwritten.");
+                }
+                return Ok(output);
+            }
+            Err(error) => {
+                log::warn!("Failed to init GPIO!");
+                log::debug!("{}",error);
+                return Err("Failed GPIO init".to_string());
+            }
+        }
     }
 
     fn go_to_login_prompt(&mut self) -> &mut Self{
@@ -205,9 +240,16 @@ impl Device{
         };
         return self;
     }
-    fn save_values(&mut self) -> &mut Self{
+    fn save_values(&mut self) -> bool{
         let output_path = OUTPUT_FOLDER.to_owned() + &self.serial + ".txt";
-        self.output_file = Some(std::fs::OpenOptions::new().write(true).truncate(true).open(output_path).unwrap());
+        let temp = fs::OpenOptions::new().write(true).truncate(true).open(output_path);
+        match temp{
+            Ok(opened_file) => self.output_file = Some(opened_file),
+            Err(_) => {
+                log::warn!("Could not open file to write! Potential permissions error.");
+                return false
+            }
+        }
         log::trace!("{:?}",self.output_file);
         if let Some(ref mut file_name) = self.output_file{
             log::debug!("Writing to file!");
@@ -220,12 +262,18 @@ impl Device{
             output_data.push_str(TEMP_SECTION);
             output_data.push_str(&self.temps.to_string());
             output_data.push_str("\n");
-            file_name.write_all(output_data.as_bytes()).expect("Unable to write to bufwriter");
+            let temp = file_name.write_all(output_data.as_bytes());
+            match temp{
+                Err(error) => {
+                    log::warn!("{}",error);
+                },
+                _ => {}
+            }
         }
         else {
-            log::warn!("Cannot write to log!");
+            log::warn!("Cannot write to output file!");
         }
-        return self;
+        return true
     }
     pub fn set_serial(&mut self, serial:&str) -> &mut Self{
         self.serial = serial.to_string();
@@ -237,8 +285,15 @@ impl Device{
         &self.serial
     }
     pub fn set_pin_address(&mut self, address:u8) -> &mut Self{
-        self.address = Some(address);
-        self.pin = Some(self.gpio.get(self.address.unwrap()).unwrap().into_output());
+        self.address = Some(address.clone());
+        let temp = self.gpio.get(address);
+        match temp{
+            Ok(pin) => self.pin = Some(pin.into_output()),
+            Err(error) => {
+                log::warn!("Could not set pin to this address {}; already assigned?",address);
+                log::debug!("{}",error);
+            }
+        }
         return self;
     }
     pub fn start_temp(&mut self) -> &mut Self {

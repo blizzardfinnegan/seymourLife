@@ -1,6 +1,6 @@
-use seymour_poc_rust::{device::Device, tty::{self,TTY,Response},log_facade,gpio_facade::GpioPins};
-use std::io::{stdin,stdout,Write};
-use std::thread::{self, JoinHandle};
+use seymour_poc_rust::{device::Device, tty::{self,TTY,Response},gpio_facade::GpioPins};
+use std::{io::{stdin,stdout,Write},thread::{self, JoinHandle},path::Path,fs};
+use chrono::{DateTime,Local};
 
 fn int_input_filtering(prompt:Option<&str>) -> u64{
     let internal_prompt = prompt.unwrap_or(">>>");
@@ -34,24 +34,44 @@ fn input_filtering(prompt:Option<&str>) -> String{
 }
 
 fn main(){
-    _ = log_facade::setup_logs();
+    setup_logs();
     let gpio = &mut GpioPins::new();
     let available_ttys = std::fs::read_dir("/dev/serial/by-id").unwrap();
     let mut possible_devices:Vec<Option<Device>> = Vec::new();
     let mut tty_test_threads:Vec<JoinHandle<Option<Device>>> = Vec::new();
     for possible_tty in available_ttys.into_iter(){
-        tty_test_threads.push(thread::spawn(move ||{
-            let mut possible_port = TTY::new(possible_tty.as_ref().unwrap().path().to_str().unwrap());
-            log::info!("Testing port {}. This may take a moment...",possible_tty.as_ref().unwrap().path().to_string_lossy());
-            possible_port.write_to_device(tty::Command::Newline);
-            let response = possible_port.read_from_device(Some(":"));
-            if response != Response::Empty{
-                log::debug!("{} is valid port!",possible_tty.as_ref().unwrap().path().to_string_lossy());
-                Some(Device::new(possible_port,Some(response)))
-            }
-            else{
-                None
-            }
+        tty_test_threads.push(
+            thread::spawn(move ||{
+                let tty_ref = possible_tty.as_ref();
+                match tty_ref{
+                    Ok(tty_real_ref)=>{
+                        let tty_path =  tty_real_ref.path();
+                        let tty_name = tty_path.to_string_lossy();
+                        log::info!("Testing port {}. This may take a moment...",&tty_name);
+                        let possible_port = TTY::new(&tty_name);
+                        match possible_port{
+                            Some(mut port) =>{
+                                port.write_to_device(tty::Command::Newline);
+                                let response = port.read_from_device(Some(":"));
+                                if response != Response::Empty{
+                                    log::debug!("{} is valid port!",tty_name);
+                                    let new_device = Device::new(port,Some(response));
+                                    match new_device{
+                                        Ok(device) => Some(device),
+                                        Err(_) => None
+                                    }
+                                }
+                                else { None }
+                            },
+                            None=>{None}
+                        }
+                    },
+                    Err(error)=>{
+                        //log::warn!("Invalid TTY location");
+                        log::debug!("{}",error);
+                        None
+                    }
+                }
         }));
     }
     for thread in tty_test_threads{
@@ -109,4 +129,35 @@ fn main(){
     for thread in iteration_threads{
         thread.join().unwrap();
     }
+}
+
+pub fn setup_logs(){
+    let chrono_now: DateTime<Local> = Local::now();
+    if ! Path::new("logs").is_dir(){
+        _ = fs::create_dir("logs");
+    };
+    _ = fern::Dispatch::new()
+        .format(|out,message,record|{
+            out.finish(format_args!(
+                "{} - [{}, {}] - {}",
+                Local::now().to_rfc3339(),
+                record.level(),
+                record.target(),
+                message
+            ))
+        })
+        .chain(
+            fern::Dispatch::new()
+                .level(log::LevelFilter::Trace)
+                .chain(fern::log_file(
+                    format!("logs/{0}.log",
+                    chrono_now.format("%Y-%m-%d_%H.%M").to_string()
+                    )).unwrap()),
+        )
+        .chain(
+            fern::Dispatch::new()
+                .level(log::LevelFilter::Info)
+                .chain(std::io::stdout())
+        )
+        .apply();
 }

@@ -1,3 +1,5 @@
+use rppal::gpio::Gpio;
+
 const RELAY_ADDRESSES: [u8;10] = [4,5,6,12,13,17,18,19,20,26];
 
 pub struct GpioPins{
@@ -8,10 +10,26 @@ impl GpioPins{
     pub fn new() -> Self {
         let mut output = Self { unassigned_addresses:Vec::new() };
         for pin in RELAY_ADDRESSES.iter(){
-            let gpio_object = rppal::gpio::Gpio::new().unwrap();
-            let mut pin_object = gpio_object.get(pin.clone()).unwrap().into_output();
-            pin_object.set_low();
-            output.unassigned_addresses.push(*pin);
+            let possible_gpio = Gpio::new();
+            match possible_gpio{
+                Ok(gpio_object) =>{
+                    let temp = gpio_object.get(pin.clone());
+                    match temp{
+                        Ok(pin_object)=>{
+                            _ = pin_object.into_output_low();
+                            output.unassigned_addresses.push(*pin);
+                        },
+                        Err(error) => {
+                            log::warn!("Pin unavailable!");
+                            log::debug!("{}",error);
+                        }
+                    }
+                },
+                Err(error) => {
+                    log::warn!("Unable to open GPIO!");
+                    log::debug!("{}",error);
+                }
+            }
         }
         return output;
     }
