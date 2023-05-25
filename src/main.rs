@@ -2,6 +2,8 @@ use seymour_poc_rust::{device::Device, tty::{self,TTY,Response},gpio_facade::Gpi
 use std::{io::{stdin,stdout,Write},thread::{self, JoinHandle},path::Path,fs};
 use chrono::{DateTime,Local};
 
+const VERSION:&str="2.0.1";
+
 fn int_input_filtering(prompt:Option<&str>) -> u64{
     let internal_prompt = prompt.unwrap_or(">>>");
     let mut user_input:String = String::new();
@@ -35,6 +37,7 @@ fn input_filtering(prompt:Option<&str>) -> String{
 
 fn main(){
     setup_logs();
+    log::info!("Seymour Life Testing version: {}",VERSION);
     let gpio = &mut GpioPins::new();
     let available_ttys = std::fs::read_dir("/dev/serial/by-id").unwrap();
     let mut possible_devices:Vec<Option<Device>> = Vec::new();
