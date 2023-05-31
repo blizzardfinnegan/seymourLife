@@ -40,7 +40,7 @@ fn main(){
     log::info!("Seymour Life Testing version: {}",VERSION);
     let gpio = &mut GpioPins::new();
     match std::fs::read_dir("/dev/serial/by-path"){
-        Ok(available_ttys){
+        Ok(available_ttys)=>{
             let mut possible_devices:Vec<Option<Device>> = Vec::new();
             let mut tty_test_threads:Vec<JoinHandle<Option<Device>>> = Vec::new();
             for possible_tty in available_ttys.into_iter(){
@@ -134,7 +134,7 @@ fn main(){
                 thread.join().unwrap();
             }
         }
-        Err(_){
+        Err(_)=>{
             log::error!("Invalid serial location! Please make sure that /dev/serial/by-path exists.");
             break;
         }
