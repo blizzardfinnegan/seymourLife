@@ -136,7 +136,6 @@ fn main(){
         }
         Err(_)=>{
             log::error!("Invalid serial location! Please make sure that /dev/serial/by-path exists.");
-            break;
         }
     }
 }
