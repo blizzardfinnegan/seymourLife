@@ -1,5 +1,10 @@
-use seymour_poc_rust::{device::Device, tty::{self,TTY,Response},gpio_facade::GpioPins};
-use std::{io::{stdin,stdout,Write},thread::{self, JoinHandle},path::Path,fs};
+use seymour_poc_rust::{device::Device, 
+                       tty::{self,TTY,Response},
+                       gpio_facade::GpioPins};
+use std::{io::{stdin,stdout,Write},
+          thread::{self, JoinHandle},
+          path::Path,
+          fs};
 use chrono::{DateTime,Local};
 
 const VERSION:&str="2.0.1";
@@ -38,102 +43,102 @@ fn input_filtering(prompt:Option<&str>) -> String{
 fn main(){
     setup_logs();
     log::info!("Seymour Life Testing version: {}",VERSION);
-    let gpio = &mut GpioPins::new();
-    match std::fs::read_dir("/dev/serial/by-path"){
-        Ok(available_ttys)=>{
-            let mut possible_devices:Vec<Option<Device>> = Vec::new();
-            let mut tty_test_threads:Vec<JoinHandle<Option<Device>>> = Vec::new();
-            for possible_tty in available_ttys.into_iter(){
-                tty_test_threads.push(
-                    thread::spawn(move ||{
-                        let tty_ref = possible_tty.as_ref();
-                        match tty_ref{
-                            Ok(tty_real_ref)=>{
-                                let tty_path =  tty_real_ref.path();
-                                let tty_name = tty_path.to_string_lossy();
-                                log::info!("Testing port {}. This may take a moment...",&tty_name);
-                                let possible_port = TTY::new(&tty_name);
-                                match possible_port{
-                                    Some(mut port) =>{
-                                        port.write_to_device(tty::Command::Newline);
-                                        let response = port.read_from_device(Some(":"));
-                                        if response != Response::Empty{
-                                            log::debug!("{} is valid port!",tty_name);
-                                            let new_device = Device::new(port,Some(response));
-                                            match new_device{
-                                                Ok(mut device) => {
-                                                    device.darken_screen();
-                                                    Some(device)
-                                                },
-                                                Err(_) => None
+    loop{
+        let gpio = &mut GpioPins::new();
+        match std::fs::read_dir("/dev/serial/by-path"){
+            Ok(available_ttys)=>{
+                let mut possible_devices:Vec<Option<Device>> = Vec::new();
+                let mut tty_test_threads:Vec<JoinHandle<Option<Device>>> = Vec::new();
+                for possible_tty in available_ttys.into_iter(){
+                    tty_test_threads.push(
+                        thread::spawn(move ||{
+                            let tty_ref = possible_tty.as_ref();
+                            match tty_ref{
+                                Ok(tty_real_ref)=>{
+                                    let tty_path =  tty_real_ref.path();
+                                    let tty_name = tty_path.to_string_lossy();
+                                    log::info!("Testing port {}. This may take a moment...",&tty_name);
+                                    let possible_port = TTY::new(&tty_name);
+                                    match possible_port{
+                                        Some(mut port) =>{
+                                            port.write_to_device(tty::Command::Newline);
+                                            let response = port.read_from_device(Some(":"));
+                                            if response != Response::Empty{
+                                                log::debug!("{} is valid port!",tty_name);
+                                                let new_device = Device::new(port,Some(response));
+                                                match new_device{
+                                                    Ok(mut device) => {
+                                                        device.darken_screen();
+                                                        Some(device)
+                                                    },
+                                                    Err(_) => None
+                                                }
                                             }
-                                        }
-                                        else { None }
-                                    },
-                                    None=>{None}
+                                            else { None }
+                                        },
+                                        None=>{None}
+                                    }
+                                },
+                                Err(error)=>{
+                                    log::debug!("{}",error);
+                                    None
                                 }
-                            },
-                            Err(error)=>{
-                                log::debug!("{}",error);
-                                None
                             }
-                        }
-                }));
-            }
-            for thread in tty_test_threads{
-                let output = thread.join().unwrap_or_else(|x|{log::trace!("{:?}",x); None});
-                possible_devices.push(output);
-            }
-
-            let mut devices:Vec<Device> = Vec::new();
-            for possible_device in possible_devices.into_iter(){
-                if let Some(device) = possible_device{
-                    devices.push(device);
+                    }));
                 }
-            }
-
-            log::info!("\n\n--------------------------------------");
-            log::info!("Number of devices detected: {}",devices.len());
-            log::info!("--------------------------------------\n\n");
-
-            //log::info!("Dimming all screens...");
-            //for device in devices.iter_mut(){
-            //    device.darken_screen();
-            //}
-
-            for device in devices.iter_mut(){
-                device.brighten_screen()
-                    .set_serial(&input_filtering(Some("Enter the serial of the device with the bright screen: ")).to_string())
-                .darken_screen();
-                log::debug!("Number of unassigned addresses: {}",gpio.get_unassigned_addresses().len());
-                if !find_gpio(device, gpio){
-                    device.set_pin_address(21);
-                    log::error!("Unable to find GPIO for device {}. Please ensure that the probe well is installed properly, and the calibration key is plugged in.",device.get_location());
+                for thread in tty_test_threads{
+                    let output = thread.join().unwrap_or_else(|x|{log::trace!("{:?}",x); None});
+                    possible_devices.push(output);
                 }
-            }
 
-            let mut iteration_count:u64 = 0;
-            while iteration_count < 1{
-                iteration_count = int_input_filtering(Some("Enter the number of iterations to complete: "));
-            }
-
-            let mut iteration_threads = Vec::new();
-            while let Some(mut device) = devices.pop(){
-                iteration_threads.push(thread::spawn(move||{
-                    for i in 1..=iteration_count{
-                        log::info!("Starting iteration {} of {} for device {}...",
-                                       i,iteration_count,device.get_serial());
-                        device.test_cycle(None, None);
+                let mut devices:Vec<Device> = Vec::new();
+                for possible_device in possible_devices.into_iter(){
+                    if let Some(device) = possible_device{
+                        devices.push(device);
                     }
-                }));
+                }
+
+                log::info!("\n\n--------------------------------------");
+                log::info!("Number of devices detected: {}",devices.len());
+                log::info!("--------------------------------------\n\n");
+
+                for device in devices.iter_mut(){
+                    device.brighten_screen()
+                        .set_serial(&input_filtering(Some("Enter the serial of the device with the bright screen: ")).to_string())
+                    .darken_screen();
+                    log::debug!("Number of unassigned addresses: {}",gpio.get_unassigned_addresses().len());
+                    if !find_gpio(device, gpio){
+                        device.set_pin_address(21);
+                        log::error!("Unable to find GPIO for device {}. Please ensure that the probe well is installed properly, and the calibration key is plugged in.",device.get_location());
+                    }
+                }
+
+                let mut iteration_count:u64 = 0;
+                while iteration_count < 1{
+                    iteration_count = int_input_filtering(Some("Enter the number of iterations to complete: "));
+                }
+
+                let mut iteration_threads = Vec::new();
+                while let Some(mut device) = devices.pop(){
+                    iteration_threads.push(thread::spawn(move||{
+                        for i in 1..=iteration_count{
+                            log::info!("Starting iteration {} of {} for device {}...",
+                                           i,iteration_count,device.get_serial());
+                            device.test_cycle(None, None);
+                        }
+                    }));
+                }
+                for thread in iteration_threads{
+                    thread.join().unwrap();
+                }
             }
-            for thread in iteration_threads{
-                thread.join().unwrap();
+            Err(_)=>{
+                log::error!("Invalid serial location! Please make sure that /dev/serial/by-path exists.");
+                break;
             }
         }
-        Err(_)=>{
-            log::error!("Invalid serial location! Please make sure that /dev/serial/by-path exists.");
-        }
+        if input_filtering(Some("Would you like to run the tests again? (y/N): ")).to_string().contains("y") {}
+        else { break; }
     }
 }
 
