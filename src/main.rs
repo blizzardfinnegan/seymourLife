@@ -61,7 +61,10 @@ fn main(){
                                             log::debug!("{} is valid port!",tty_name);
                                             let new_device = Device::new(port,Some(response));
                                             match new_device{
-                                                Ok(device) => Some(device),
+                                                Ok(mut device) => {
+                                                    device.darken_screen();
+                                                    Some(device)
+                                                },
                                                 Err(_) => None
                                             }
                                         }
@@ -71,7 +74,6 @@ fn main(){
                                 }
                             },
                             Err(error)=>{
-                                //log::warn!("Invalid TTY location");
                                 log::debug!("{}",error);
                                 None
                             }
@@ -90,28 +92,23 @@ fn main(){
                 }
             }
 
+            log::info!("\n\n--------------------------------------");
             log::info!("Number of devices detected: {}",devices.len());
+            log::info!("--------------------------------------\n\n");
 
-            log::info!("Dimming all screens...");
-            for device in devices.iter_mut(){
-                device.darken_screen();
-            }
+            //log::info!("Dimming all screens...");
+            //for device in devices.iter_mut(){
+            //    device.darken_screen();
+            //}
 
             for device in devices.iter_mut(){
                 device.brighten_screen()
                     .set_serial(&input_filtering(Some("Enter the serial of the device with the bright screen: ")).to_string())
                 .darken_screen();
                 log::debug!("Number of unassigned addresses: {}",gpio.get_unassigned_addresses().len());
-                for &address in gpio.get_unassigned_addresses(){
-                    device.set_pin_address(address).start_temp();
-                    if device.is_temp_running(){
-                        device.stop_temp();
-                        gpio.remove_address(address);
-                        break;
-                    }
-                    else{
-                        device.stop_temp();
-                    }
+                if !find_gpio(device, gpio){
+                    device.set_pin_address(21);
+                    log::error!("Unable to find GPIO for device {}. Please ensure that the probe well is installed properly, and the calibration key is plugged in.",device.get_location());
                 }
             }
 
@@ -138,6 +135,21 @@ fn main(){
             log::error!("Invalid serial location! Please make sure that /dev/serial/by-path exists.");
         }
     }
+}
+
+fn find_gpio(device:&mut Device,gpio:&mut GpioPins) -> bool{
+    for &address in gpio.get_unassigned_addresses(){
+        device.set_pin_address(address).start_temp();
+        if device.is_temp_running(){
+            device.stop_temp();
+            gpio.remove_address(address);
+            return true;
+        }
+        else {
+            device.stop_temp();
+        }
+    }
+    return false;
 }
 
 pub fn setup_logs(){

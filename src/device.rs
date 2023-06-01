@@ -284,6 +284,9 @@ impl Device{
     pub fn get_serial(&mut self) -> &str{
         &self.serial
     }
+    pub fn get_location(&mut self) -> String{
+        std::format!("{:?}",self.usb_tty)
+    }
     pub fn set_pin_address(&mut self, address:u8) -> &mut Self{
         self.address = Some(address.clone());
         let temp = self.gpio.get(address);
