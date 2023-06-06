@@ -10,9 +10,14 @@ jobs:
       - name: List files in the repository
         run: |
           ls ${{ github.workspace }}
-      - name: Run cargo check
+      - name: Grab Rust toolchain
         uses: https://github.com/actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
+          target: aarch64-unknown-linux-gnu
           override: true
+      - name: Run check
+        uses: https://github.com/actions-rs/cargo@v1
+        with:
+          command: check
