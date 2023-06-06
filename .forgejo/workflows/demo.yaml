@@ -3,7 +3,7 @@ run-name: ${{ github.actor }} is testing
 on: [push]
 jobs:
   Explore-CI:
-    runs-on: self-hosted
+    runs-on: x86-64
     steps:
       - name: Check out repository code
         uses: actions/checkout@v3
