@@ -4,7 +4,7 @@ name: Check-Build
 
 jobs:
   amd_check:
-    name: x86_64 Check
+    name: x86_64-Check
       runs-on: [ self-hosted,x64 ]
       steps:
         - name: Checkout repo code
@@ -18,7 +18,7 @@ jobs:
           #  with:
           #    command: check
   arm_check:
-    name: ARM64 Check
+    name: ARM64-Check
       runs-on: [ self-hosted,arm64 ]
       steps:
         - name: Checkout repo code
