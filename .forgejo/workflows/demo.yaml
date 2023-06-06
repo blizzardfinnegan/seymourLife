@@ -3,13 +3,13 @@ run-name: ${{ github.actor }} is testing
 on: [push]
 jobs:
   Explore-CI:
-    runs-on: x86-64
+    runs-on: docker
     steps:
       - name: Check out repository code
         uses: actions/checkout@v3
       - name: List files in the repository
         run: |
-          ls ${{ github.workspace }}
+          apt install librust-udev-sys-dev
       - name: Grab Rust toolchain
         uses: https://github.com/actions-rs/toolchain@v1
         with:
