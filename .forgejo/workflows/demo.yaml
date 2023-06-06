@@ -15,7 +15,7 @@ jobs:
         with:
           profile: minimal
           toolchain: stable
-          target: aarch64-unknown-linux-gnu
+          target: aarch64-unknown-linux-musl
           override: true
       - name: Run check
         uses: https://github.com/actions-rs/cargo@v1
