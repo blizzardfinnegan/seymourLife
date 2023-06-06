@@ -5,11 +5,11 @@ jobs:
   Explore-CI:
     runs-on: docker
     steps:
-      - name: Check out repository code
-        uses: actions/checkout@v3
       - name: Grab misc. dependencies
         run: |
           apt install -y librust-libudev-sys-dev build-essential
+      - name: Check out repository code
+        uses: actions/checkout@v3
       - name: Grab Rust toolchain
         uses: https://github.com/actions-rs/toolchain@v1
         with:
