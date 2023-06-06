@@ -7,9 +7,9 @@ jobs:
     steps:
       - name: Check out repository code
         uses: actions/checkout@v3
-      - name: List files in the repository
+      - name: Grab misc. dependencies
         run: |
-          apt install -y librust-libudev-sys-dev 
+          apt install -y librust-libudev-sys-dev build-essential
       - name: Grab Rust toolchain
         uses: https://github.com/actions-rs/toolchain@v1
         with:
