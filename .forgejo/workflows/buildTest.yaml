@@ -1,0 +1,30 @@
+on: [push]
+
+name: Test build
+jobs:
+  amd_check:
+    name: x86_64 Check
+      runs-on: [ self-hosted,x64 ]
+      steps:
+        - uses: actions/checkout@v2
+        - uses: https://github.com/actions-rs/toolchain@v1
+          with:
+            profile: minimal
+            toolchain: stable
+            override: true
+        - uses: https://github.com/actions-rs/cargo@v1
+          with:
+            command: check
+  arm_check:
+    name: ARM64 Check
+      runs-on: [ self-hosted,arm64 ]
+      steps:
+        - uses: actions/checkout@v2
+        - uses: https://github.com/actions-rs/toolchain@v1
+          with:
+            profile: minimal
+            toolchain: stable
+            override: true
+        - uses: https://github.com/actions-rs/cargo@v1
+          with:
+            command: check
