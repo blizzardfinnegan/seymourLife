@@ -13,8 +13,8 @@ jobs:
       - name: Grab Rust toolchain
         uses: https://github.com/actions-rs/toolchain@v1
         with:
-          profile: default
-          toolchain: stable
+          profile: complete
+          toolchain: nightly
           target: aarch64-unknown-linux-musl
           override: true
       - name: Run check
