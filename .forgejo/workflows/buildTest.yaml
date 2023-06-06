@@ -1,6 +1,7 @@
 on: [push]
 
-name: Test build
+name: Check-Build
+
 jobs:
   amd_check:
     name: x86_64 Check
