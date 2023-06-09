@@ -3,7 +3,7 @@ run-name: ${{ github.actor }} is testing
 on: [push]
 jobs:
   Explore-CI:
-    runs-on: docker
+    runs-on: aarch64
     steps:
       - name: Grab misc. dependencies
         run: |
