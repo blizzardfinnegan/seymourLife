@@ -118,6 +118,7 @@ fn main(){
                     device.brighten_screen();
                     if args.debug{
                         let location = device.get_location();
+                        log::info!("Init device {}...", location);
                         device.set_serial(&location);
                     }
                     else{
