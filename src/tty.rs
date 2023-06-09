@@ -78,8 +78,20 @@ pub struct TTY{
 }
 impl std::fmt::Debug for TTY{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result{
+        let absolute_location = self.tty.name();
+        let relative_location:String;
+        match absolute_location{
+            Some(abs_location_string) => {
+                let sectioned_abs_location = abs_location_string.rsplit_once('/');
+                match sectioned_abs_location{
+                    Some((_,serial_device_name)) => relative_location = serial_device_name.to_string(),
+                    None => relative_location = "unknown".to_string()
+                }
+            },
+            None => relative_location = "unknown".to_string()
+        };
         f.debug_struct("TTY")
-        .field("Serial port name",&self.tty.name().unwrap_or("Unknown".to_string()))
+        .field("Serial port name",&relative_location)
         .finish()
     }
 }
