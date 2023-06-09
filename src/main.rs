@@ -133,8 +133,13 @@ fn main(){
                 }
 
                 let mut iteration_count:u64 = 0;
-                while iteration_count < 1{
-                    iteration_count = int_input_filtering(Some("Enter the number of iterations to complete: "));
+                if args.debug { 
+                    iteration_count = 10000;
+                }
+                else {
+                    while iteration_count < 1{
+                        iteration_count = int_input_filtering(Some("Enter the number of iterations to complete: "));
+                    }
                 }
 
                 let mut iteration_threads = Vec::new();
