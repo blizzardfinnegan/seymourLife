@@ -2,7 +2,7 @@ name: Demo
 run-name: ${{ github.actor }} is testing
 on: [push]
 jobs:
-  Explore-CI:
+  docker-build:
     runs-on: docker
     steps:
       - name: Grab misc. dependencies
