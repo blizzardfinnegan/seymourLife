@@ -6,8 +6,16 @@ use std::{io::{stdin,stdout,Write},
           path::Path,
           fs};
 use chrono::{DateTime,Local};
+use clap::Parser;
 
-const VERSION:&str="2.0.1";
+#[derive(Parser,Debug)]
+#[command(author,version,about)]
+struct Args{
+    #[arg(short,long,action)]
+    debug:bool
+}
+
+const VERSION:&str="2.1.0";
 
 fn int_input_filtering(prompt:Option<&str>) -> u64{
     let internal_prompt = prompt.unwrap_or(">>>");
@@ -42,7 +50,11 @@ fn input_filtering(prompt:Option<&str>) -> String{
 
 fn main(){
     setup_logs();
+    let args = Args::parse();
     log::info!("Seymour Life Testing version: {}",VERSION);
+    if args.debug{
+        log::debug!("Debug enabled!");
+    }
     loop{
         let gpio = &mut GpioPins::new();
         match std::fs::read_dir("/dev/serial/by-path"){
@@ -103,9 +115,15 @@ fn main(){
                 log::info!("--------------------------------------\n\n");
 
                 for device in devices.iter_mut(){
-                    device.brighten_screen()
-                        .set_serial(&input_filtering(Some("Enter the serial of the device with the bright screen: ")).to_string())
-                    .darken_screen();
+                    device.brighten_screen();
+                    if args.debug{
+                        let location = device.get_location();
+                        device.set_serial(&location);
+                    }
+                    else{
+                        device.set_serial(&input_filtering(Some("Enter the serial of the device with the bright screen: ")).to_string());
+                    }
+                    device.darken_screen();
                     log::debug!("Number of unassigned addresses: {}",gpio.get_unassigned_addresses().len());
                     if !find_gpio(device, gpio){
                         device.set_pin_address(21);
