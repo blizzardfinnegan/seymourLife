@@ -3,11 +3,11 @@ run-name: ${{ github.actor }} is testing
 on: [push]
 jobs:
   Explore-CI:
-    runs-on: aarch64
+    runs-on: docker
     steps:
       - name: Grab misc. dependencies
         run: |
-          apt install -y librust-libudev-sys-dev build-essential
+          apt update && apt install -y librust-libudev-sys-dev build-essential
       - name: Check out repository code
         uses: actions/checkout@v3
       - name: Grab Rust toolchain
