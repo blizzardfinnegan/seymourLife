@@ -11,6 +11,7 @@ const OUTPUT_FOLDER: &str = "output/";
 const UNINITIALISED_SERIAL: &str = "uninitialised";
 #[derive(PartialEq,Debug)]
 pub enum State{
+    Shutdown,
     LoginPrompt,
     DebugMenu,
     LifecycleMenu,
@@ -144,22 +145,6 @@ impl Device{
         }
     }
 
-    fn go_to_login_prompt(&mut self) -> &mut Self{
-        while !(self.current_state == State::LoginPrompt){
-            match self.current_state {
-                State::LoginPrompt => return self,
-                State::DebugMenu | State::LifecycleMenu | State::BrightnessMenu => {
-                    self.usb_tty.write_to_device(Command::Quit);
-                    _ = self.usb_tty.read_from_device(None);
-                    self.current_state = State::LoginPrompt;
-                    self.reboots+=1;
-                    return self;
-                },
-            };
-        };
-        return self;
-    }
-
     fn go_to_brightness_menu(&mut self) -> &mut Self{
         while !(self.current_state == State::BrightnessMenu){
             match self.current_state {
@@ -181,6 +166,10 @@ impl Device{
                     self.usb_tty.write_to_device(Command::DebugMenu);
                     _ = self.usb_tty.read_from_device(None);
                     self.current_state = State::DebugMenu;
+                },
+                State::Shutdown => {
+                    while self.usb_tty.read_from_device(None) != Response::Rebooting {}
+                    self.current_state = State::LoginPrompt;
                 },
             };
         };
@@ -209,6 +198,10 @@ impl Device{
                     self.current_state = State::DebugMenu;
                     return self;
                 },
+                State::Shutdown => {
+                    while self.usb_tty.read_from_device(None) != Response::Rebooting {}
+                    self.current_state = State::LoginPrompt;
+                },
             };
         };
         return self;
@@ -235,6 +228,10 @@ impl Device{
                     self.usb_tty.write_to_device(Command::DebugMenu);
                     _ = self.usb_tty.read_from_device(None);
                     self.current_state = State::DebugMenu;
+                },
+                State::Shutdown => {
+                    while self.usb_tty.read_from_device(None) != Response::Rebooting {}
+                    self.current_state = State::LoginPrompt;
                 },
             };
         };
@@ -363,7 +360,11 @@ impl Device{
         }
     }
     pub fn reboot(&mut self) -> () {
-        self.go_to_login_prompt();
+        //self.go_to_login_prompt();
+        self.usb_tty.write_to_device(Command::Quit);
+        while self.usb_tty.read_from_device(None) != Response::Rebooting {}
+        self.current_state = State::Shutdown;
+        while self.usb_tty.read_from_device(None) != Response::LoginPrompt {}
         self.current_state = State::LoginPrompt;
     }
     pub fn is_rebooted(&mut self) -> bool {
@@ -371,7 +372,7 @@ impl Device{
             return true;
         }
         else{
-            self.go_to_login_prompt();
+            self.reboot();
             self.reboots +=1;
             self.save_values();
             return true;
@@ -380,7 +381,7 @@ impl Device{
     pub fn test_cycle(&mut self, bp_cycles: Option<u64>, temp_cycles: Option<u64>) -> () {
         let local_bp_cycles: u64 = bp_cycles.unwrap_or(3);
         let local_temp_cycles: u64 = temp_cycles.unwrap_or(2);
-        self.go_to_login_prompt();
+        if self.current_state != State::LoginPrompt { self.reboot(); }
         thread::sleep(BOOT_TIME);
         self.go_to_lifecycle_menu();
         _ = self.usb_tty.read_from_device(Some("["));

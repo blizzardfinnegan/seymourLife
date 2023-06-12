@@ -60,6 +60,7 @@ const COMMAND_MAP:Lazy<HashMap<Command,&str>> = Lazy::new(||HashMap::from([
 ]));
 
 const RESPONSES:[(&str,Response);10] = [
+    ("reboot: Restarting",Response::Rebooting),
     ("login:",Response::LoginPrompt),
     ("Password:",Response::PasswordPrompt),
     ("root@",Response::ShellPrompt),
@@ -69,7 +70,6 @@ const RESPONSES:[(&str,Response);10] = [
     ("Temp:",Response::TempSuccess),
     ("> ",Response::DebugMenuWithContinuedMessage),
     (">",Response::DebugMenuReady),
-    ("[",Response::Rebooting),
 ];
 
 pub struct TTY{
