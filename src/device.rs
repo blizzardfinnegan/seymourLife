@@ -39,7 +39,7 @@ impl Device{
         log::debug!("{:?}",&self.serial);
         let output_path = OUTPUT_FOLDER.to_owned() + &self.serial + ".txt";
         if ! Path::new(&output_path).exists(){
-            log::debug!("Creating file {}",output_path);
+            log::debug!("Creating file {}",&output_path);
             let temp = fs::File::create(&output_path);
             match temp{
                 Ok(file) => {
@@ -242,11 +242,11 @@ impl Device{
     }
     fn save_values(&mut self) -> bool{
         let output_path = OUTPUT_FOLDER.to_owned() + &self.serial + ".txt";
-        let temp = fs::OpenOptions::new().write(true).truncate(true).open(output_path);
+        let temp = fs::OpenOptions::new().write(true).truncate(true).open(&output_path);
         match temp{
             Ok(opened_file) => self.output_file = Some(opened_file),
             Err(_) => {
-                log::warn!("Could not open file [{}] to write! Potential permissions error.",output_path);
+                log::warn!("Could not open file [{}] to write! Potential permissions error.",&output_path);
                 return false
             }
         }
