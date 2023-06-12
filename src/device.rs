@@ -332,13 +332,23 @@ impl Device{
     pub fn is_temp_running(&mut self) -> bool {
         self.go_to_lifecycle_menu();
         self.usb_tty.write_to_device(Command::ReadTemp);
-        loop {
+        for _ in 0..10 {
             match self.usb_tty.read_from_device(None){
                 Response::TempSuccess => return true,
                 Response::TempFailed => return false,
                 _ => {},
             }
         }
+	self.usb_tty.write_to_device(Command::ReadTemp);
+	for _ in 0..10{
+	    match self.usb_tty.read_from_device(None){
+		Response::TempSuccess => return true,
+		Response::TempFailed => return false,
+		_ => {},
+	    }
+        }
+	log::error!("Temp read failed!!!");
+	return false;
     }
     pub fn is_bp_running(&mut self) -> bool {
         self.go_to_lifecycle_menu();
