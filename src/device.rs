@@ -2,8 +2,8 @@ use std::{fs::{self, File}, path::Path, io::Write, thread, time::Duration};
 use crate::tty::{TTY, Response,Command};
 use rppal::gpio::{Gpio,OutputPin};
 
-const BOOT_TIME:Duration = Duration::new(40, 0);
-const BP_RUN:Duration = Duration::new(55, 0);
+const BOOT_TIME:Duration = Duration::new(50, 0);
+const BP_RUN:Duration = Duration::new(60, 0);
 const REBOOTS_SECTION: &str = "Reboots: ";
 const BP_SECTION: &str = "Successful BP tests: ";
 const TEMP_SECTION: &str = "Successful temp tests: ";
