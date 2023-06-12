@@ -246,11 +246,11 @@ impl Device{
         match temp{
             Ok(opened_file) => self.output_file = Some(opened_file),
             Err(_) => {
-                log::warn!("Could not open file to write! Potential permissions error.");
+                log::warn!("Could not open file [{}] to write! Potential permissions error.",output_path);
                 return false
             }
         }
-        log::trace!("{:?}",self.output_file);
+        log::trace!("Writing to file: {:?}",self.output_file);
         if let Some(ref mut file_name) = self.output_file{
             log::debug!("Writing to file!");
             let mut output_data = REBOOTS_SECTION.to_string();
@@ -378,13 +378,13 @@ impl Device{
             log::info!("Running bp {} on device {} ...",(self.bps+1),self.serial);
             self.start_bp();
             let bp_start = self.is_bp_running();
-            log::trace!("{:?}",bp_start);
+            log::trace!("Has bp started on device {}? : {:?}",self.serial,bp_start);
             thread::sleep(BP_RUN);
             let bp_end = self.is_bp_running();
-            log::trace!("{:?}",bp_end);
+            log::trace!("Has bp ended on device {}? : {:?}",self.serial,bp_end);
             if bp_start != bp_end {
                 self.bps +=1;
-                log::debug!("Increasing bp count to {}",self.bps);
+                log::debug!("Increasing bp count for device {} to {}",self.serial,self.bps);
                 self.save_values();
             }
         }
@@ -394,7 +394,7 @@ impl Device{
             let temp_end = self.stop_temp().is_temp_running();
             if temp_start != temp_end {
                 self.temps +=1;
-                log::debug!("Increasing temp count to {}",self.temps);
+                log::debug!("Increasing temp count for device {} to {}",self.serial,self.temps);
                 self.save_values();
             }
         }

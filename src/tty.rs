@@ -133,7 +133,7 @@ impl TTY{
             return Response::Other;
         }
         else {
-            log::debug!("Read an empty string. Possible read error.");
+            log::debug!("Read an empty string from device {:?}. Possible read error.", self);
             //Due to a linux kernel power-saving setting that is overly complicated to fix,
             //Serial connections will drop for a moment before re-opening, at seemingly-random
             //intervals. The below is an attempt to catch and recover from this behaviour.
