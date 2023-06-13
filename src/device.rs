@@ -2,10 +2,10 @@ use std::{fs::{self, File}, path::Path, io::Write, thread, time::Duration};
 use crate::tty::{TTY, Response,Command};
 use rppal::gpio::{Gpio,OutputPin};
 
-//const BOOT_TIME:Duration = Duration::new(50, 0);
-const BP_RUN_1:Duration = Duration::new(29, 0);
-const TEMP_WAIT:Duration = Duration::new(3,0);
-const BP_RUN_2:Duration = Duration::new(28, 0);
+const BP_RUN_1:Duration = Duration::from_secs(29);
+const TEMP_WAIT:Duration = Duration::from_secs(3);
+const BP_RUN_2:Duration = Duration::from_secs(28);
+const LOGIN_WAIT:Duration = Duration::from_secs(1);
 const REBOOTS_SECTION: &str = "Reboots: ";
 const BP_SECTION: &str = "Successful BP tests: ";
 const TEMP_SECTION: &str = "Successful temp tests: ";
@@ -165,6 +165,7 @@ impl Device{
                 },
                 State::LoginPrompt => {
                     self.usb_tty.write_to_device(Command::Login);
+                    thread::sleep(LOGIN_WAIT);
                     _ = self.usb_tty.read_from_device(None);
                     self.usb_tty.write_to_device(Command::DebugMenu);
                     _ = self.usb_tty.read_from_device(None);
@@ -195,6 +196,7 @@ impl Device{
                 },
                 State::LoginPrompt => {
                     self.usb_tty.write_to_device(Command::Login);
+                    thread::sleep(LOGIN_WAIT);
                     _ = self.usb_tty.read_from_device(None);
                     self.usb_tty.write_to_device(Command::DebugMenu);
                     _ = self.usb_tty.read_from_device(None);
@@ -227,6 +229,7 @@ impl Device{
                 },
                 State::LoginPrompt => {
                     self.usb_tty.write_to_device(Command::Login);
+                    thread::sleep(LOGIN_WAIT);
                     _ = self.usb_tty.read_from_device(None);
                     self.usb_tty.write_to_device(Command::DebugMenu);
                     _ = self.usb_tty.read_from_device(None);
@@ -336,14 +339,14 @@ impl Device{
         self.usb_tty.write_to_device(Command::ReadTemp);
         for _ in 0..10 {
             match self.usb_tty.read_from_device(None){
-                Response::TempCount(count) => return count == self.init_temps ,
+                Response::TempCount(count) => return count != self.init_temps ,
                 _ => {},
             }
         }
 	self.usb_tty.write_to_device(Command::ReadTemp);
 	for _ in 0..10{
 	    match self.usb_tty.read_from_device(None){
-                Response::TempCount(count) => return count == self.init_temps ,
+                Response::TempCount(count) => return count != self.init_temps ,
 		_ => {},
 	    }
         }
@@ -356,18 +359,24 @@ impl Device{
         self.usb_tty.write_to_device(Command::ReadTemp);
         for _ in 0..10 {
             match self.usb_tty.read_from_device(None){
-                Response::TempCount(count) => return count,
+                Response::TempCount(count) => {
+                    log::trace!("Count for device {} updated to {}",self.serial,count);
+                    return count
+                },
                 _ => {},
             }
         }
 	self.usb_tty.write_to_device(Command::ReadTemp);
 	for _ in 0..10{
 	    match self.usb_tty.read_from_device(None){
-                Response::TempCount(count) => return count,
+                Response::TempCount(count) => {
+                    log::trace!("Count for device {} updated to {}",self.serial,count);
+                    return count
+                },
 		_ => {},
 	    }
         }
-	log::error!("Temp read failed!!!");
+	log::error!("Update temp count on device {} failed!!!",self.serial);
 	return 0;
     }
 
@@ -376,18 +385,26 @@ impl Device{
         self.usb_tty.write_to_device(Command::ReadTemp);
         for _ in 0..10 {
             match self.usb_tty.read_from_device(None){
-                Response::TempCount(count) => self.init_temps = count ,
+                Response::TempCount(count) => {
+                    log::trace!("init temp count set to {} on device {}",count,self.serial);
+                    self.init_temps = count;
+                    return
+                },
                 _ => {},
             }
-        }
+        };
 	self.usb_tty.write_to_device(Command::ReadTemp);
 	for _ in 0..10{
 	    match self.usb_tty.read_from_device(None){
-                Response::TempCount(count) => self.init_temps = count ,
+                Response::TempCount(count) => {
+                    log::trace!("init temp count set to {} on device {}",count,self.serial);
+                    self.init_temps = count;
+                    return
+                },
 		_ => {},
 	    }
-        }
-	log::error!("Temp read failed!!!");
+        };
+	log::error!("init temp count failed on device {}!!!",self.serial);
     }
 
     pub fn is_bp_running(&mut self) -> bool {
@@ -425,6 +442,7 @@ impl Device{
         if self.current_state != State::LoginPrompt { self.reboot(); }
         self.go_to_lifecycle_menu();
         _ = self.usb_tty.read_from_device(Some("["));
+        self.update_temp_count();
         for _bp_count in 1..=local_bp_cycles{
             log::info!("Running bp {} on device {} ...",(self.bps+1),self.serial);
             self.start_bp();
@@ -432,8 +450,10 @@ impl Device{
             log::trace!("Has bp started on device {}? : {:?}",self.serial,bp_start);
             thread::sleep(BP_RUN_1);
 
+            log::trace!("Starting temp on device {}",self.serial);
             self.start_temp();
             thread::sleep(TEMP_WAIT);
+            log::trace!("Stopping temp on device {}",self.serial);
             self.stop_temp();
 
             thread::sleep(BP_RUN_2);

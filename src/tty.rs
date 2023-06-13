@@ -126,13 +126,23 @@ impl TTY{
                    log::debug!("Successful read of {:?} from tty {}, which matches pattern {:?}",read_line,self.tty.name().unwrap_or("unknown shell".to_string()),enum_value);
                    self.failed_read_count = 0;
                     if enum_value == Response::TempCount(0){
-                        match read_line.rsplit_once(' '){
-                            None =>  return enum_value,
-                            Some((_,temp_count)) => return Response::TempCount(temp_count.parse().unwrap_or(0))
+                        let mut lines = read_line.lines();
+                        while let Some(single_line) = lines.next(){
+                            if single_line.contains(string){
+                                let trimmed_line = single_line.trim();
+                                match trimmed_line.rsplit_once(' '){
+                                    None =>  return enum_value,
+                                    Some((header,temp_count)) => {
+                                        log::trace!("Header: {}",header);
+                                        log::trace!("Temp count: {}",temp_count);
+                                        return Response::TempCount(temp_count.parse().unwrap_or(0))
+                                    }
+                                }
+                            }
                         }
                     }
                     else{
-                    return enum_value;
+                        return enum_value;
                     }
                 }
             }
