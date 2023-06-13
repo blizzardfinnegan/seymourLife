@@ -2,8 +2,10 @@ use std::{fs::{self, File}, path::Path, io::Write, thread, time::Duration};
 use crate::tty::{TTY, Response,Command};
 use rppal::gpio::{Gpio,OutputPin};
 
-const BOOT_TIME:Duration = Duration::new(50, 0);
-const BP_RUN:Duration = Duration::new(60, 0);
+//const BOOT_TIME:Duration = Duration::new(50, 0);
+const BP_RUN_1:Duration = Duration::new(29, 0);
+const TEMP_WAIT:Duration = Duration::new(3,0);
+const BP_RUN_2:Duration = Duration::new(28, 0);
 const REBOOTS_SECTION: &str = "Reboots: ";
 const BP_SECTION: &str = "Successful BP tests: ";
 const TEMP_SECTION: &str = "Successful temp tests: ";
@@ -29,6 +31,7 @@ pub struct Device{
     current_state: State,
     reboots: u64,
     temps: u64,
+    init_temps: u64,
     bps: u64
 }
 
@@ -108,8 +111,7 @@ impl Device{
                     Response::Other | Response::Empty | Response::ShellPrompt 
                         | Response::LoginPrompt | Response::Rebooting => 
                             initial_state = State::LoginPrompt,
-                    Response::BPOn | Response::BPOff | Response::TempFailed 
-                        | Response::TempSuccess =>
+                    Response::BPOn | Response::BPOff | Response::TempCount(_) =>
                             initial_state = State::LifecycleMenu,
                     Response::DebugMenuReady | Response::DebugMenuWithContinuedMessage=>
                             initial_state = State::DebugMenu,
@@ -130,6 +132,7 @@ impl Device{
                     current_state: initial_state,
                     reboots: 0,
                     temps: 0,
+                    init_temps: 0,
                     bps: 0
                 };
                 if !output.load_values(){
@@ -257,7 +260,8 @@ impl Device{
             output_data.push_str(&self.bps.to_string());
             output_data.push_str("\n");
             output_data.push_str(TEMP_SECTION);
-            output_data.push_str(&self.temps.to_string());
+            let saved_temps = self.temps - self.init_temps;
+            output_data.push_str(&saved_temps.to_string());
             output_data.push_str("\n");
             let temp = file_name.write_all(output_data.as_bytes());
             match temp{
@@ -326,27 +330,46 @@ impl Device{
         _ = self.usb_tty.read_from_device(None);
         return self;
     }
-    pub fn is_temp_running(&mut self) -> bool {
+    pub fn update_temp_count(&mut self) -> u64 {
         self.go_to_lifecycle_menu();
         self.usb_tty.write_to_device(Command::ReadTemp);
         for _ in 0..10 {
             match self.usb_tty.read_from_device(None){
-                Response::TempSuccess => return true,
-                Response::TempFailed => return false,
+                Response::TempCount(count) => return count,
                 _ => {},
             }
         }
 	self.usb_tty.write_to_device(Command::ReadTemp);
 	for _ in 0..10{
 	    match self.usb_tty.read_from_device(None){
-		Response::TempSuccess => return true,
-		Response::TempFailed => return false,
+                Response::TempCount(count) => return count,
 		_ => {},
 	    }
         }
 	log::error!("Temp read failed!!!");
-	return false;
+	return 0;
     }
+
+    pub fn init_temp_count(&mut self){
+        self.go_to_lifecycle_menu();
+        self.usb_tty.write_to_device(Command::ReadTemp);
+        for _ in 0..10 {
+            match self.usb_tty.read_from_device(None){
+                Response::TempCount(count) => self.init_temps = count ,
+                _ => {},
+            }
+        }
+	self.usb_tty.write_to_device(Command::ReadTemp);
+	for _ in 0..10{
+	    match self.usb_tty.read_from_device(None){
+                Response::TempCount(count) => self.init_temps = count ,
+		_ => {},
+	    }
+        }
+	log::error!("Temp read failed!!!");
+	//return 0;
+    }
+
     pub fn is_bp_running(&mut self) -> bool {
         self.go_to_lifecycle_menu();
         self.usb_tty.write_to_device(Command::CheckBPState);
@@ -360,7 +383,6 @@ impl Device{
         }
     }
     pub fn reboot(&mut self) -> () {
-        //self.go_to_login_prompt();
         self.usb_tty.write_to_device(Command::Quit);
         while self.usb_tty.read_from_device(None) != Response::Rebooting {}
         self.current_state = State::Shutdown;
@@ -378,11 +400,9 @@ impl Device{
             return true;
         }
     }
-    pub fn test_cycle(&mut self, bp_cycles: Option<u64>, temp_cycles: Option<u64>) -> () {
+    pub fn test_cycle(&mut self, bp_cycles: Option<u64>, _temp_cycles: Option<u64>) -> () {
         let local_bp_cycles: u64 = bp_cycles.unwrap_or(3);
-        let local_temp_cycles: u64 = temp_cycles.unwrap_or(2);
         if self.current_state != State::LoginPrompt { self.reboot(); }
-        thread::sleep(BOOT_TIME);
         self.go_to_lifecycle_menu();
         _ = self.usb_tty.read_from_device(Some("["));
         for _bp_count in 1..=local_bp_cycles{
@@ -390,22 +410,18 @@ impl Device{
             self.start_bp();
             let bp_start = self.is_bp_running();
             log::trace!("Has bp started on device {}? : {:?}",self.serial,bp_start);
-            thread::sleep(BP_RUN);
+            thread::sleep(BP_RUN_1);
+
+            self.start_temp();
+            thread::sleep(TEMP_WAIT);
+            self.stop_temp();
+
+            thread::sleep(BP_RUN_2);
             let bp_end = self.is_bp_running();
             log::trace!("Has bp ended on device {}? : {:?}",self.serial,bp_end);
             if bp_start != bp_end {
                 self.bps +=1;
                 log::debug!("Increasing bp count for device {} to {}",self.serial,self.bps);
-                self.save_values();
-            }
-        }
-        for _temp_count in 1..=local_temp_cycles{
-            log::info!("Running temp {} on device {} ...",(self.temps+1),self.serial);
-            let temp_start = self.start_temp().is_temp_running();
-            let temp_end = self.stop_temp().is_temp_running();
-            if temp_start != temp_end {
-                self.temps +=1;
-                log::debug!("Increasing temp count for device {} to {}",self.serial,self.temps);
                 self.save_values();
             }
         }

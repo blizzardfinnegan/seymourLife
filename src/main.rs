@@ -49,8 +49,8 @@ fn input_filtering(prompt:Option<&str>) -> String{
 }
 
 fn main(){
-    setup_logs();
     let args = Args::parse();
+    setup_logs(&args.debug);
     log::info!("Seymour Life Testing version: {}",VERSION);
     if args.debug{
         log::debug!("Debug enabled!");
@@ -181,7 +181,7 @@ fn find_gpio(device:&mut Device,gpio:&mut GpioPins) -> bool{
     return false;
 }
 
-pub fn setup_logs(){
+pub fn setup_logs(debug:&bool){
     let chrono_now: DateTime<Local> = Local::now();
     if ! Path::new("logs").is_dir(){
         _ = fs::create_dir("logs");
@@ -204,10 +204,15 @@ pub fn setup_logs(){
                     chrono_now.format("%Y-%m-%d_%H.%M").to_string()
                     )).unwrap()),
         )
-        .chain(
-            fern::Dispatch::new()
-                .level(log::LevelFilter::Info)
-                .chain(std::io::stdout())
-        )
+        .chain({
+            let mut stdout_logger = fern::Dispatch::new();
+            if *debug {
+                stdout_logger = stdout_logger.level(log::LevelFilter::Trace);
+            }
+            else {
+                stdout_logger = stdout_logger.level(log::LevelFilter::Info);
+            }
+                stdout_logger.chain(std::io::stdout())
+        })
         .apply();
 }

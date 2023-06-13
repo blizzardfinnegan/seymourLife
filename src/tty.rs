@@ -32,8 +32,7 @@ pub enum Response{
     ShellPrompt,
     BPOn,
     BPOff,
-    TempFailed,
-    TempSuccess,
+    TempCount(u64),
     LoginPrompt,
     DebugMenuReady,
     DebugMenuWithContinuedMessage,
@@ -51,7 +50,7 @@ const COMMAND_MAP:Lazy<HashMap<Command,&str>> = Lazy::new(||HashMap::from([
     (Command::BrightnessMenu, "B"),
     (Command::BrightnessHigh, "0"),
     (Command::BrightnessLow, "1"),
-    (Command::ReadTemp, "h"),
+    (Command::ReadTemp, "H"),
     (Command::UpMenuLevel, "\\"),
     (Command::Login,"root\n"),
     (Command::RedrawMenu,"?"),
@@ -59,15 +58,14 @@ const COMMAND_MAP:Lazy<HashMap<Command,&str>> = Lazy::new(||HashMap::from([
     (Command::Newline,"\n"),
 ]));
 
-const RESPONSES:[(&str,Response);10] = [
+const RESPONSES:[(&str,Response);9] = [
     ("reboot: Restarting",Response::Rebooting),
     ("login:",Response::LoginPrompt),
     ("Password:",Response::PasswordPrompt),
     ("root@",Response::ShellPrompt),
     ("Check NIBP In Progress: True",Response::BPOn),
     ("Check NIBP In Progress: False",Response::BPOff),
-    ("Temp: 0",Response::TempFailed),
-    ("Temp:",Response::TempSuccess),
+    ("SureTemp Probe Pulls:",Response::TempCount(0)),
     ("> ",Response::DebugMenuWithContinuedMessage),
     (">",Response::DebugMenuReady),
 ];
@@ -127,7 +125,15 @@ impl TTY{
                 if read_line.contains(string){
                    log::debug!("Successful read of {:?} from tty {}, which matches pattern {:?}",read_line,self.tty.name().unwrap_or("unknown shell".to_string()),enum_value);
                    self.failed_read_count = 0;
+                    if enum_value == Response::TempCount(0){
+                        match read_line.rsplit_once(' '){
+                            None =>  return enum_value,
+                            Some((_,temp_count)) => return Response::TempCount(temp_count.parse().unwrap_or(0))
+                        }
+                    }
+                    else{
                     return enum_value;
+                    }
                 }
             }
             return Response::Other;
