@@ -330,6 +330,27 @@ impl Device{
         _ = self.usb_tty.read_from_device(None);
         return self;
     }
+
+    pub fn is_temp_running(&mut self) -> bool{
+        self.go_to_lifecycle_menu();
+        self.usb_tty.write_to_device(Command::ReadTemp);
+        for _ in 0..10 {
+            match self.usb_tty.read_from_device(None){
+                Response::TempCount(count) => return count == self.init_temps ,
+                _ => {},
+            }
+        }
+	self.usb_tty.write_to_device(Command::ReadTemp);
+	for _ in 0..10{
+	    match self.usb_tty.read_from_device(None){
+                Response::TempCount(count) => return count == self.init_temps ,
+		_ => {},
+	    }
+        }
+	log::error!("Temp read failed!!!");
+        return false
+    }
+
     pub fn update_temp_count(&mut self) -> u64 {
         self.go_to_lifecycle_menu();
         self.usb_tty.write_to_device(Command::ReadTemp);
@@ -367,7 +388,6 @@ impl Device{
 	    }
         }
 	log::error!("Temp read failed!!!");
-	//return 0;
     }
 
     pub fn is_bp_running(&mut self) -> bool {

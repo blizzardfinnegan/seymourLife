@@ -145,6 +145,7 @@ fn main(){
                 let mut iteration_threads = Vec::new();
                 while let Some(mut device) = devices.pop(){
                     iteration_threads.push(thread::spawn(move||{
+                        device.init_temp_count();
                         for i in 1..=iteration_count{
                             log::info!("Starting iteration {} of {} for device {}...",
                                            i,iteration_count,device.get_serial());
@@ -167,6 +168,7 @@ fn main(){
 }
 
 fn find_gpio(device:&mut Device,gpio:&mut GpioPins) -> bool{
+    device.init_temp_count();
     for &address in gpio.get_unassigned_addresses(){
         device.set_pin_address(address).start_temp();
         if device.is_temp_running(){
