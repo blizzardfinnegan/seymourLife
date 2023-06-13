@@ -15,7 +15,7 @@ struct Args{
     debug:bool
 }
 
-const VERSION:&str="2.1.1";
+const VERSION:&str="2.2.0";
 
 fn int_input_filtering(prompt:Option<&str>) -> u64{
     let internal_prompt = prompt.unwrap_or(">>>");
