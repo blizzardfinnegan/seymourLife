@@ -446,7 +446,7 @@ impl Device{
             return true;
         }
     }
-    pub fn test_cycle(&mut self, bp_cycles: Option<u64>, _temp_cycles: Option<u64>) -> () {
+    pub fn test_cycle(&mut self, bp_cycles: Option<u64>) -> () {
         let local_bp_cycles: u64 = bp_cycles.unwrap_or(3);
         if self.current_state != State::LoginPrompt { self.reboot(); }
         self.go_to_lifecycle_menu();

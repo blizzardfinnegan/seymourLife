@@ -110,7 +110,7 @@ impl TTY{
     }
 
     pub fn write_to_device(&mut self,command:Command) -> bool {
-        log::debug!("writing {:?} to tty {}...", command, self.tty.name().unwrap_or("unknown".to_string()));
+        log::trace!("writing {:?} to tty {}...", command, self.tty.name().unwrap_or("unknown".to_string()));
         let output = self.tty.write_all(COMMAND_MAP.get(&command).unwrap().as_bytes()).is_ok();
         _ = self.tty.flush();
         if command == Command::Login { std::thread::sleep(std::time::Duration::from_secs(2)); }
@@ -126,7 +126,7 @@ impl TTY{
             let read_line:String = String::from_utf8_lossy(read_buffer.as_slice()).to_string();
             for (string,enum_value) in RESPONSES{
                 if read_line.contains(string){
-                   log::debug!("Successful read of {:?} from tty {}, which matches pattern {:?}",read_line,self.tty.name().unwrap_or("unknown shell".to_string()),enum_value);
+                   log::trace!("Successful read of {:?} from tty {}, which matches pattern {:?}",read_line,self.tty.name().unwrap_or("unknown shell".to_string()),enum_value);
                    self.failed_read_count = 0;
                     if enum_value == Response::TempCount(0){
                         let mut lines = read_line.lines();

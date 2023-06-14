@@ -149,7 +149,7 @@ fn main(){
                         for i in 1..=iteration_count{
                             log::info!("Starting iteration {} of {} for device {}...",
                                            i,iteration_count,device.get_serial());
-                            device.test_cycle(None, None);
+                            device.test_cycle(None);
                         }
                     }));
                 }
