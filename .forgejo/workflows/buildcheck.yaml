@@ -3,39 +3,25 @@ run-name: ${{ github.actor }} is testing
 on: [push]
 jobs:
   docker-check:
-    runs-on: docker
+    runs-on: rust
     steps:
       - name: Grab misc. dependencies
         run: |
           apt update && apt install -y librust-libudev-sys-dev build-essential
       - name: Check out repository code
         uses: actions/checkout@v3
-      - name: Grab Rust toolchain
-        uses: https://github.com/actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          target: aarch64-unknown-linux-gnu
-          override: true
       - name: Run check
         uses: https://github.com/actions-rs/cargo@v1
         with:
           command: check
   docker-build:
-    runs-on: docker
+    runs-on: rust
     steps:
       - name: Grab misc. dependencies
         run: |
           apt update && apt install -y librust-libudev-sys-dev build-essential
       - name: Check out repository code
         uses: actions/checkout@v3
-      - name: Grab Rust toolchain
-        uses: https://github.com/actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          target: aarch64-unknown-linux-gnu
-          override: true
       - name: Run check
         uses: https://github.com/actions-rs/cargo@v1
         with:
