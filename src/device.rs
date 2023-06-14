@@ -107,8 +107,8 @@ impl Device{
                         _ = usb_port.read_from_device(None);
                         initial_state = State::LoginPrompt;
                     },
-                    Response::Other | Response::Empty | Response::ShellPrompt 
-                        | Response::LoginPrompt | Response::Rebooting => 
+                    Response::Other | Response::Empty | Response::ShellPrompt |
+                    Response::LoginPrompt | Response::ShuttingDown | Response::Rebooting => 
                             initial_state = State::LoginPrompt,
                     Response::BPOn | Response::BPOff | Response::TempCount(_) =>
                             initial_state = State::LifecycleMenu,
@@ -417,9 +417,22 @@ impl Device{
     }
     pub fn reboot(&mut self) -> () {
         self.usb_tty.write_to_device(Command::Quit);
-        while self.usb_tty.read_from_device(None) != Response::Rebooting {}
-        self.current_state = State::Shutdown;
-        while self.usb_tty.read_from_device(None) != Response::LoginPrompt {}
+        let mut successful_reboot:bool = false;
+        loop{
+            match self.usb_tty.read_from_device(None){
+                Response::LoginPrompt => break,
+                Response::Rebooting => {
+                    log::trace!("Successful reboot detected for device {}.",self.serial);
+                    successful_reboot = true;
+                },
+                Response::ShuttingDown => {
+                    log::warn!("Failed reboot on device {}!",self.serial);
+                    successful_reboot = false;
+                },
+                _ => {}
+            }
+        };
+        if successful_reboot { self.reboots += 1; }
         self.current_state = State::LoginPrompt;
     }
     pub fn is_rebooted(&mut self) -> bool {
@@ -463,7 +476,6 @@ impl Device{
         }
         log::info!("Rebooting {} for the {}th time",self.serial, self.reboots);
         self.reboot();
-        self.reboots += 1;
         self.save_values();
     }
 }

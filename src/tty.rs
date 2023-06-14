@@ -39,6 +39,7 @@ pub enum Response{
     Rebooting,
     Other,
     Empty,
+    ShuttingDown
 }
 
 
@@ -58,10 +59,11 @@ const COMMAND_MAP:Lazy<HashMap<Command,&str>> = Lazy::new(||HashMap::from([
     (Command::Newline,"\n"),
 ]));
 
-const RESPONSES:[(&str,Response);9] = [
+const RESPONSES:[(&str,Response);10] = [
     ("reboot: Restarting",Response::Rebooting),
     ("login:",Response::LoginPrompt),
     ("Password:",Response::PasswordPrompt),
+    ("EXIT Debug menu",Response::ShuttingDown),
     ("root@",Response::ShellPrompt),
     ("Check NIBP In Progress: True",Response::BPOn),
     ("Check NIBP In Progress: False",Response::BPOff),
