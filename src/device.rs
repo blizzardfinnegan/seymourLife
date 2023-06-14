@@ -5,7 +5,6 @@ use rppal::gpio::{Gpio,OutputPin};
 const BP_RUN_1:Duration = Duration::from_secs(29);
 const TEMP_WAIT:Duration = Duration::from_secs(3);
 const BP_RUN_2:Duration = Duration::from_secs(28);
-const LOGIN_WAIT:Duration = Duration::from_secs(1);
 const REBOOTS_SECTION: &str = "Reboots: ";
 const BP_SECTION: &str = "Successful BP tests: ";
 const TEMP_SECTION: &str = "Successful temp tests: ";
@@ -165,14 +164,13 @@ impl Device{
                 },
                 State::LoginPrompt => {
                     self.usb_tty.write_to_device(Command::Login);
-                    thread::sleep(LOGIN_WAIT);
                     _ = self.usb_tty.read_from_device(None);
                     self.usb_tty.write_to_device(Command::DebugMenu);
                     _ = self.usb_tty.read_from_device(None);
                     self.current_state = State::DebugMenu;
                 },
                 State::Shutdown => {
-                    while self.usb_tty.read_from_device(None) != Response::Rebooting {}
+                    while self.usb_tty.read_from_device(None) != Response::LoginPrompt{}
                     self.current_state = State::LoginPrompt;
                 },
             };
@@ -196,7 +194,6 @@ impl Device{
                 },
                 State::LoginPrompt => {
                     self.usb_tty.write_to_device(Command::Login);
-                    thread::sleep(LOGIN_WAIT);
                     _ = self.usb_tty.read_from_device(None);
                     self.usb_tty.write_to_device(Command::DebugMenu);
                     _ = self.usb_tty.read_from_device(None);
@@ -204,7 +201,7 @@ impl Device{
                     return self;
                 },
                 State::Shutdown => {
-                    while self.usb_tty.read_from_device(None) != Response::Rebooting {}
+                    while self.usb_tty.read_from_device(None) != Response::LoginPrompt {}
                     self.current_state = State::LoginPrompt;
                 },
             };
@@ -229,14 +226,13 @@ impl Device{
                 },
                 State::LoginPrompt => {
                     self.usb_tty.write_to_device(Command::Login);
-                    thread::sleep(LOGIN_WAIT);
                     _ = self.usb_tty.read_from_device(None);
                     self.usb_tty.write_to_device(Command::DebugMenu);
                     _ = self.usb_tty.read_from_device(None);
                     self.current_state = State::DebugMenu;
                 },
                 State::Shutdown => {
-                    while self.usb_tty.read_from_device(None) != Response::Rebooting {}
+                    while self.usb_tty.read_from_device(None) != Response::LoginPrompt {}
                     self.current_state = State::LoginPrompt;
                 },
             };

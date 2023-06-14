@@ -111,6 +111,7 @@ impl TTY{
         log::debug!("writing {:?} to tty {}...", command, self.tty.name().unwrap_or("unknown".to_string()));
         let output = self.tty.write_all(COMMAND_MAP.get(&command).unwrap().as_bytes()).is_ok();
         _ = self.tty.flush();
+        if command == Command::Login { std::thread::sleep(std::time::Duration::from_secs(2)); }
         std::thread::sleep(std::time::Duration::from_millis(500));
         return output;
     }
@@ -140,6 +141,11 @@ impl TTY{
                                 }
                             }
                         }
+                    }
+                    else if enum_value == Response::PasswordPrompt {
+                        log::error!("Recieved password prompt on device {}! Something fell apart here. Check preceeding log lines.",self.tty.name().unwrap_or("unknown shell".to_string()));
+                        self.write_to_device(Command::Newline);
+                        _ = self.read_from_device(None);
                     }
                     else{
                         return enum_value;
