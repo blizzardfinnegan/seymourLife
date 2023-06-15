@@ -259,6 +259,8 @@ impl Device{
             output_data.push_str(&self.bps.to_string());
             output_data.push_str("\n");
             output_data.push_str(TEMP_SECTION);
+            log::trace!("Current temps: {}",self.temps);
+            log::trace!("Initial temps: {}",self.init_temps);
             let saved_temps = self.temps - self.init_temps;
             output_data.push_str(&saved_temps.to_string());
             output_data.push_str("\n");
