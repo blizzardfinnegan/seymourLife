@@ -41,6 +41,7 @@ pub enum Response{
     Empty,
     ShuttingDown,
     FailedDebugMenu,
+    PreShellPrompt,
 }
 
 
@@ -61,7 +62,8 @@ const COMMAND_MAP:Lazy<HashMap<Command,&str>> = Lazy::new(||HashMap::from([
     (Command::Shutdown,"shutdown -r now\n"),
 ]));
 
-const RESPONSES:[(&str,Response);10] = [
+const RESPONSES:[(&str,Response);11] = [
+    ("Last login:",Response::PreShellPrompt),
     ("reboot: Restarting",Response::Rebooting),
     ("command not found",Response::FailedDebugMenu),
     ("login:",Response::LoginPrompt),
@@ -128,8 +130,14 @@ impl TTY{
             let read_line:String = String::from_utf8_lossy(read_buffer.as_slice()).to_string();
             for (string,enum_value) in RESPONSES{
                 if read_line.contains(string){
-                   log::trace!("Successful read of {:?} from tty {}, which matches pattern {:?}",read_line,self.tty.name().unwrap_or("unknown shell".to_string()),enum_value);
-                   self.failed_read_count = 0;
+                    if(enum_value == Response::BPOn) || (enum_value == Response::BPOff) {
+                        //Don't log BPOn or BPOff, we're gonna see a LOT of those and we don't want
+                        //to overfill the SD card
+                    }
+                    else{
+                        log::trace!("Successful read of {:?} from tty {}, which matches pattern {:?}",read_line,self.tty.name().unwrap_or("unknown shell".to_string()),enum_value);
+                    };
+                    self.failed_read_count = 0;
                     if enum_value == Response::TempCount(0){
                         let mut lines = read_line.lines();
                         while let Some(single_line) = lines.next(){
