@@ -23,6 +23,7 @@ pub enum Command{
     Login,
     DebugMenu,
     Newline,
+    Shutdown,
 }
 
 #[derive(Clone,Eq,Derivative,Debug)]
@@ -57,6 +58,7 @@ const COMMAND_MAP:Lazy<HashMap<Command,&str>> = Lazy::new(||HashMap::from([
     (Command::RedrawMenu,"?"),
     (Command::DebugMenu," python3 -m debugmenu; shutdown -r now\n"),
     (Command::Newline,"\n"),
+    (Command::Shutdown,"shutdown -r now\n"),
 ]));
 
 const RESPONSES:[(&str,Response);10] = [
@@ -135,10 +137,18 @@ impl TTY{
                                 let trimmed_line = single_line.trim();
                                 match trimmed_line.rsplit_once(' '){
                                     None =>  return enum_value,
-                                    Some((header,temp_count)) => {
-                                        log::trace!("Header: {}",header);
-                                        log::trace!("Temp count: {}",temp_count);
-                                        return Response::TempCount(temp_count.parse().unwrap_or(0))
+                                    Some((_header,temp_count)) => {
+                                        match temp_count.trim().parse::<u64>(){
+                                            Err(_) => {
+                                                log::error!("String {} from device {} unable to be parsed!",temp_count,self.tty.name().unwrap_or("unknown shell".to_string()));
+                                                return Response::TempCount(0)
+                                            },
+                                            Ok(parsed_temp_count) => {
+                                                //log::trace!("Header: {}",header);
+                                                log::trace!("parsed temp count for device {}: {}",self.tty.name().unwrap_or("unknown shell".to_string()),temp_count);
+                                                return Response::TempCount(parsed_temp_count)
+                                            }
+                                        }
                                     }
                                 }
                             }

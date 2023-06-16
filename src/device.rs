@@ -40,10 +40,10 @@ impl Device{
             _ = fs::create_dir(&OUTPUT_FOLDER);
         };
         log::debug!("{:?}",&self.serial);
-        let output_path = OUTPUT_FOLDER.to_owned() + &self.serial + ".txt";
+        let output_path:String = OUTPUT_FOLDER.to_owned() + &self.serial + ".txt";
         if ! Path::new(&output_path).exists(){
             log::debug!("Creating file {}",&output_path);
-            let temp = fs::File::create(&output_path);
+            let temp:Result<File, std::io::Error> = fs::File::create(&output_path);
             match temp{
                 Ok(file) => {
                     self.output_file = Some(file);
@@ -55,17 +55,17 @@ impl Device{
             }
         }
         else {
-            let temp = std::fs::read_to_string(output_path);
+            let temp:Result<String, std::io::Error> = std::fs::read_to_string(output_path);
             match temp{
                 Ok(file_contents) =>{
-                    let file_lines = file_contents.split("\n");
+                    let file_lines:Vec<&str> = file_contents.split("\n").collect();
                     log::trace!("{:?}",file_contents);
                     for line in file_lines {
                         if line.len() > 0{
                             log::trace!("{:?}",line);
                             let section_and_data:Vec<&str> = line.split(": ").collect();
-                            let section = section_and_data[0];
-                            let possible_value = section_and_data[1].trim().parse::<u64>();
+                            let section:&str = section_and_data[0];
+                            let possible_value:Result<u64, std::num::ParseIntError> = section_and_data[1].trim().parse::<u64>();
                             match possible_value{
                                 Ok(value) => {
                                     log::trace!("{:?} value: [{:?}]",section,value);
@@ -83,7 +83,7 @@ impl Device{
                                     };
                                 }
                                 Err(_) => {
-                                    log::warn!("Unable to parse value [{}] into integer",section_and_data[1]);
+                                    log::warn!("Unable to parse value [{:?}] into integer",section_and_data);
                                 }
                             }
                         };
@@ -107,14 +107,32 @@ impl Device{
                         _ = usb_port.read_from_device(None);
                         initial_state = State::LoginPrompt;
                     },
+                        //Response::Empty parsing here is potentially in bad faith
                     Response::Other | Response::Empty | Response::ShellPrompt |
                     Response::LoginPrompt | Response::ShuttingDown | Response::Rebooting => 
-                            initial_state = State::LoginPrompt,
-                    Response::BPOn | Response::BPOff | Response::TempCount(_) =>
-                            initial_state = State::LifecycleMenu,
-                    Response::DebugMenuReady | Response::DebugMenuWithContinuedMessage=>
-                            initial_state = State::DebugMenu,
-                }
+                        initial_state = State::LoginPrompt,
+                    Response::BPOn | Response::BPOff | Response::TempCount(_) |
+                    Response::DebugMenuReady | Response::DebugMenuWithContinuedMessage=>{
+                        usb_port.write_to_device(Command::Quit);
+                        _ = usb_port.read_from_device(None);
+                        usb_port.write_to_device(Command::Newline);
+                        match usb_port.read_from_device(None){
+                            Response::Rebooting => {
+                                while usb_port.read_from_device(None) != Response::LoginPrompt {}
+                                initial_state = State::LoginPrompt;
+                            },
+                            Response::ShellPrompt => {
+                                usb_port.write_to_device(Command::Shutdown);
+                                while usb_port.read_from_device(None) != Response::LoginPrompt {}
+                                initial_state = State::LoginPrompt;
+                            },
+                            _ => {
+                                log::error!("Unknown state for TTY {:?}!!! Consult logs immediately.",usb_port);
+                                return Err("Failed TTY init. Unknown state, cannot trust.".to_string());
+                            }
+                        };
+                    },
+                };
             },
             None => initial_state = State::LoginPrompt
         };
@@ -259,8 +277,8 @@ impl Device{
             output_data.push_str(&self.bps.to_string());
             output_data.push_str("\n");
             output_data.push_str(TEMP_SECTION);
-            log::trace!("Current temps: {}",self.temps);
-            log::trace!("Initial temps: {}",self.init_temps);
+            log::trace!("Current temps: [{}]",self.temps);
+            log::trace!("Initial temps: [{}]",self.init_temps);
             let saved_temps = self.temps - self.init_temps;
             output_data.push_str(&saved_temps.to_string());
             output_data.push_str("\n");
@@ -359,6 +377,7 @@ impl Device{
             match self.usb_tty.read_from_device(None){
                 Response::TempCount(count) => {
                     log::trace!("Count for device {} updated to {}",self.serial,count);
+                    self.temps = count;
                     return count
                 },
                 _ => {},
@@ -369,6 +388,7 @@ impl Device{
 	    match self.usb_tty.read_from_device(None){
                 Response::TempCount(count) => {
                     log::trace!("Count for device {} updated to {}",self.serial,count);
+                    self.temps = count;
                     return count
                 },
 		_ => {},
@@ -420,16 +440,18 @@ impl Device{
     pub fn reboot(&mut self) -> () {
         self.usb_tty.write_to_device(Command::Quit);
         let mut successful_reboot:bool = false;
+        let mut exited_menu:bool = false;
         loop{
             match self.usb_tty.read_from_device(None){
                 Response::LoginPrompt => break,
                 Response::Rebooting => {
                     log::trace!("Successful reboot detected for device {}.",self.serial);
                     successful_reboot = true;
+                    if !exited_menu { log::info!("Unusual reboot detected for device {}. Please check logs.",self.serial); }
                 },
                 Response::ShuttingDown => {
-                    log::warn!("Failed reboot on device {}!",self.serial);
-                    successful_reboot = false;
+                    log::trace!("Exiting debug menu on device {}.",self.serial);
+                    exited_menu = true;
                 },
                 _ => {}
             }
