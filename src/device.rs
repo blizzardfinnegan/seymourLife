@@ -2,9 +2,7 @@ use std::{fs::{self, File}, path::Path, io::Write, thread, time::Duration};
 use crate::tty::{TTY, Response,Command};
 use rppal::gpio::{Gpio,OutputPin};
 
-const BP_RUN_1:Duration = Duration::from_secs(29);
 const TEMP_WAIT:Duration = Duration::from_secs(3);
-const BP_RUN_2:Duration = Duration::from_secs(28);
 const REBOOTS_SECTION: &str = "Reboots: ";
 const BP_SECTION: &str = "Successful BP tests: ";
 const TEMP_SECTION: &str = "Successful temp tests: ";
@@ -108,11 +106,11 @@ impl Device{
                         initial_state = State::LoginPrompt;
                     },
                         //Response::Empty parsing here is potentially in bad faith
-                    Response::Other | Response::Empty | Response::ShellPrompt |
+                    Response::Other | Response::Empty | Response::ShellPrompt | Response::FailedDebugMenu |
                     Response::LoginPrompt | Response::ShuttingDown | Response::Rebooting => 
                         initial_state = State::LoginPrompt,
                     Response::BPOn | Response::BPOff | Response::TempCount(_) |
-                    Response::DebugMenuReady | Response::DebugMenuWithContinuedMessage=>{
+                    Response::DebugMenu=>{
                         usb_port.write_to_device(Command::Quit);
                         _ = usb_port.read_from_device(None);
                         usb_port.write_to_device(Command::Newline);
@@ -182,9 +180,44 @@ impl Device{
                 },
                 State::LoginPrompt => {
                     self.usb_tty.write_to_device(Command::Login);
-                    _ = self.usb_tty.read_from_device(None);
+                    loop {
+                        match self.usb_tty.read_from_device(None){
+                            Response::Empty | Response::ShuttingDown | Response::Rebooting => {},
+                            Response::PasswordPrompt => {self.usb_tty.write_to_device(Command::Newline);},
+                            Response::ShellPrompt => break,
+                            _ => {
+                                log::error!("Unexpected response from device {}!",self.serial);
+                                log::error!("Unsure how to continue. Expect data from device {} to be erratic until next cycle.",self.serial);
+                                break;
+                            },
+                        };
+                    };
+                    //_ = self.usb_tty.read_from_device(None);
                     self.usb_tty.write_to_device(Command::DebugMenu);
-                    _ = self.usb_tty.read_from_device(None);
+                    loop {
+                        match self.usb_tty.read_from_device(None)   {
+                            Response::Empty | Response::Rebooting | Response::ShuttingDown => {},
+                            Response::LoginPrompt => {
+                                self.usb_tty.write_to_device(Command::Login);
+                                while self.usb_tty.read_from_device(None) != Response::ShellPrompt {};
+                                self.usb_tty.write_to_device(Command::DebugMenu);
+                            },
+                            Response::DebugMenu =>
+                                break,
+                            Response::FailedDebugMenu => {
+                                while self.usb_tty.read_from_device(None) != Response::LoginPrompt {};
+                                self.usb_tty.write_to_device(Command::Login);
+                                while self.usb_tty.read_from_device(None) != Response::ShellPrompt {};
+                                self.usb_tty.write_to_device(Command::DebugMenu);
+                            },
+                            _ => { 
+                                log::error!("Unexpected response from device {}!", self.serial);
+                                log::error!("Unsure how to continue. Expect data from device {} to be erratic until next cycle.",self.serial);
+                                break;
+                            },
+                        };
+                    };
+                    //_ = self.usb_tty.read_from_device(None);
                     self.current_state = State::DebugMenu;
                 },
                 State::Shutdown => {
@@ -195,37 +228,7 @@ impl Device{
         };
         return self;
     }
-    #[allow(dead_code)]
-    fn go_to_debug_menu(&mut self) -> &mut Self{
-        while !(self.current_state == State::DebugMenu){
-            match self.current_state {
-                State::DebugMenu => return self,
-                State::BrightnessMenu => {
-                    self.usb_tty.write_to_device(Command::UpMenuLevel);
-                    _ = self.usb_tty.read_from_device(None);
-                    self.current_state = State::LifecycleMenu;
-                },
-                State::LifecycleMenu =>{
-                    self.usb_tty.write_to_device(Command::UpMenuLevel);
-                    _ = self.usb_tty.read_from_device(None);
-                    self.current_state = State::BrightnessMenu;
-                },
-                State::LoginPrompt => {
-                    self.usb_tty.write_to_device(Command::Login);
-                    _ = self.usb_tty.read_from_device(None);
-                    self.usb_tty.write_to_device(Command::DebugMenu);
-                    _ = self.usb_tty.read_from_device(None);
-                    self.current_state = State::DebugMenu;
-                    return self;
-                },
-                State::Shutdown => {
-                    while self.usb_tty.read_from_device(None) != Response::LoginPrompt {}
-                    self.current_state = State::LoginPrompt;
-                },
-            };
-        };
-        return self;
-    }
+
     fn go_to_lifecycle_menu(&mut self) -> &mut Self{
         while !(self.current_state == State::LifecycleMenu){
             match self.current_state {
@@ -244,9 +247,44 @@ impl Device{
                 },
                 State::LoginPrompt => {
                     self.usb_tty.write_to_device(Command::Login);
-                    _ = self.usb_tty.read_from_device(None);
+                    loop {
+                        match self.usb_tty.read_from_device(None){
+                            Response::Empty | Response::ShuttingDown | Response::Rebooting => {},
+                            Response::PasswordPrompt => {self.usb_tty.write_to_device(Command::Newline);},
+                            Response::ShellPrompt => break,
+                            _ => {
+                                log::error!("Unexpected response from device {}!",self.serial);
+                                log::error!("Unsure how to continue. Expect data from device {} to be erratic until next cycle.",self.serial);
+                                break;
+                            },
+                        };
+                    };
+                    //_ = self.usb_tty.read_from_device(None);
                     self.usb_tty.write_to_device(Command::DebugMenu);
-                    _ = self.usb_tty.read_from_device(None);
+                    loop {
+                        match self.usb_tty.read_from_device(None)   {
+                            Response::Empty | Response::Rebooting | Response::ShuttingDown => {},
+                            Response::LoginPrompt => {
+                                self.usb_tty.write_to_device(Command::Login);
+                                while self.usb_tty.read_from_device(None) != Response::ShellPrompt {};
+                                self.usb_tty.write_to_device(Command::DebugMenu);
+                            },
+                            Response::DebugMenu =>
+                                break,
+                            Response::FailedDebugMenu => {
+                                while self.usb_tty.read_from_device(None) != Response::LoginPrompt {};
+                                self.usb_tty.write_to_device(Command::Login);
+                                while self.usb_tty.read_from_device(None) != Response::ShellPrompt {};
+                                self.usb_tty.write_to_device(Command::DebugMenu);
+                            },
+                            _ => { 
+                                log::error!("Unexpected response from device {}!", self.serial);
+                                log::error!("Unsure how to continue. Expect data from device {} to be erratic until next cycle.",self.serial);
+                                break;
+                            },
+                        };
+                    };
+                    //_ = self.usb_tty.read_from_device(None);
                     self.current_state = State::DebugMenu;
                 },
                 State::Shutdown => {
@@ -257,6 +295,7 @@ impl Device{
         };
         return self;
     }
+
     fn save_values(&mut self) -> bool{
         let output_path = OUTPUT_FOLDER.to_owned() + &self.serial + ".txt";
         let temp = fs::OpenOptions::new().write(true).truncate(true).open(&output_path);
@@ -331,7 +370,7 @@ impl Device{
         }
         return self;
     }
-    pub fn start_bp(&mut self) -> &mut Self {
+    fn start_bp(&mut self) -> &mut Self {
         self.go_to_lifecycle_menu();
         self.usb_tty.write_to_device(Command::StartBP);
         _ = self.usb_tty.read_from_device(None);
@@ -425,14 +464,13 @@ impl Device{
 	log::error!("init temp count failed on device {}!!!",self.serial);
     }
 
-    pub fn is_bp_running(&mut self) -> bool {
+    fn is_bp_running(&mut self) -> bool {
         self.go_to_lifecycle_menu();
         self.usb_tty.write_to_device(Command::CheckBPState);
         loop { 
             match self.usb_tty.read_from_device(None){
                 Response::BPOn => return true,
                 Response::BPOff => return false,
-                Response::DebugMenuWithContinuedMessage =>{},
                 _ => return false,
             }
         }
@@ -459,17 +497,7 @@ impl Device{
         if successful_reboot { self.reboots += 1; }
         self.current_state = State::LoginPrompt;
     }
-    pub fn is_rebooted(&mut self) -> bool {
-        if self.current_state == State::LoginPrompt{
-            return true;
-        }
-        else{
-            self.reboot();
-            self.reboots +=1;
-            self.save_values();
-            return true;
-        }
-    }
+
     pub fn test_cycle(&mut self, bp_cycles: Option<u64>) -> () {
         let local_bp_cycles: u64 = bp_cycles.unwrap_or(3);
         if self.current_state != State::LoginPrompt { self.reboot(); }
@@ -479,17 +507,19 @@ impl Device{
         for _bp_count in 1..=local_bp_cycles{
             log::info!("Running bp {} on device {} ...",(self.bps+1),self.serial);
             self.start_bp();
-            let bp_start = self.is_bp_running();
+            let bp_start:bool = self.is_bp_running();
             log::trace!("Has bp started on device {}? : {:?}",self.serial,bp_start);
-            thread::sleep(BP_RUN_1);
 
-            log::trace!("Starting temp on device {}",self.serial);
-            self.start_temp();
-            thread::sleep(TEMP_WAIT);
-            log::trace!("Stopping temp on device {}",self.serial);
-            self.stop_temp();
+            if bp_start{
+                log::trace!("Starting temp on device {}",self.serial);
+                self.start_temp();
+                thread::sleep(TEMP_WAIT);
+                log::trace!("Stopping temp on device {}",self.serial);
+                self.stop_temp();
+            };
 
-            thread::sleep(BP_RUN_2);
+            while self.is_bp_running() {};
+
             let bp_end = self.is_bp_running();
             log::trace!("Has bp ended on device {}? : {:?}",self.serial,bp_end);
             if bp_start != bp_end {

@@ -35,12 +35,12 @@ pub enum Response{
     BPOff,
     TempCount(u64),
     LoginPrompt,
-    DebugMenuReady,
-    DebugMenuWithContinuedMessage,
+    DebugMenu,
     Rebooting,
     Other,
     Empty,
-    ShuttingDown
+    ShuttingDown,
+    FailedDebugMenu,
 }
 
 
@@ -63,6 +63,7 @@ const COMMAND_MAP:Lazy<HashMap<Command,&str>> = Lazy::new(||HashMap::from([
 
 const RESPONSES:[(&str,Response);10] = [
     ("reboot: Restarting",Response::Rebooting),
+    ("command not found",Response::FailedDebugMenu),
     ("login:",Response::LoginPrompt),
     ("Password:",Response::PasswordPrompt),
     ("EXIT Debug menu",Response::ShuttingDown),
@@ -70,8 +71,7 @@ const RESPONSES:[(&str,Response);10] = [
     ("Check NIBP In Progress: True",Response::BPOn),
     ("Check NIBP In Progress: False",Response::BPOff),
     ("SureTemp Probe Pulls:",Response::TempCount(0)),
-    ("> ",Response::DebugMenuWithContinuedMessage),
-    (">",Response::DebugMenuReady),
+    (">",Response::DebugMenu),
 ];
 
 pub struct TTY{
