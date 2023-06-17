@@ -23,6 +23,7 @@ pub enum Command{
     Login,
     DebugMenu,
     Newline,
+    Shutdown,
 }
 
 #[derive(Clone,Eq,Derivative,Debug)]
@@ -34,12 +35,13 @@ pub enum Response{
     BPOff,
     TempCount(u64),
     LoginPrompt,
-    DebugMenuReady,
-    DebugMenuWithContinuedMessage,
+    DebugMenu,
     Rebooting,
     Other,
     Empty,
-    ShuttingDown
+    ShuttingDown,
+    FailedDebugMenu,
+    PreShellPrompt,
 }
 
 
@@ -57,10 +59,13 @@ const COMMAND_MAP:Lazy<HashMap<Command,&str>> = Lazy::new(||HashMap::from([
     (Command::RedrawMenu,"?"),
     (Command::DebugMenu," python3 -m debugmenu; shutdown -r now\n"),
     (Command::Newline,"\n"),
+    (Command::Shutdown,"shutdown -r now\n"),
 ]));
 
-const RESPONSES:[(&str,Response);10] = [
+const RESPONSES:[(&str,Response);11] = [
+    ("Last login:",Response::PreShellPrompt),
     ("reboot: Restarting",Response::Rebooting),
+    ("command not found",Response::FailedDebugMenu),
     ("login:",Response::LoginPrompt),
     ("Password:",Response::PasswordPrompt),
     ("EXIT Debug menu",Response::ShuttingDown),
@@ -68,8 +73,7 @@ const RESPONSES:[(&str,Response);10] = [
     ("Check NIBP In Progress: True",Response::BPOn),
     ("Check NIBP In Progress: False",Response::BPOff),
     ("SureTemp Probe Pulls:",Response::TempCount(0)),
-    ("> ",Response::DebugMenuWithContinuedMessage),
-    (">",Response::DebugMenuReady),
+    (">",Response::DebugMenu),
 ];
 
 pub struct TTY{
@@ -126,8 +130,14 @@ impl TTY{
             let read_line:String = String::from_utf8_lossy(read_buffer.as_slice()).to_string();
             for (string,enum_value) in RESPONSES{
                 if read_line.contains(string){
-                   log::trace!("Successful read of {:?} from tty {}, which matches pattern {:?}",read_line,self.tty.name().unwrap_or("unknown shell".to_string()),enum_value);
-                   self.failed_read_count = 0;
+                    if(enum_value == Response::BPOn) || (enum_value == Response::BPOff) {
+                        //Don't log BPOn or BPOff, we're gonna see a LOT of those and we don't want
+                        //to overfill the SD card
+                    }
+                    else{
+                        log::trace!("Successful read of {:?} from tty {}, which matches pattern {:?}",read_line,self.tty.name().unwrap_or("unknown shell".to_string()),enum_value);
+                    };
+                    self.failed_read_count = 0;
                     if enum_value == Response::TempCount(0){
                         let mut lines = read_line.lines();
                         while let Some(single_line) = lines.next(){
@@ -135,10 +145,18 @@ impl TTY{
                                 let trimmed_line = single_line.trim();
                                 match trimmed_line.rsplit_once(' '){
                                     None =>  return enum_value,
-                                    Some((header,temp_count)) => {
-                                        log::trace!("Header: {}",header);
-                                        log::trace!("Temp count: {}",temp_count);
-                                        return Response::TempCount(temp_count.parse().unwrap_or(0))
+                                    Some((_header,temp_count)) => {
+                                        match temp_count.trim().parse::<u64>(){
+                                            Err(_) => {
+                                                log::error!("String {} from device {} unable to be parsed!",temp_count,self.tty.name().unwrap_or("unknown shell".to_string()));
+                                                return Response::TempCount(0)
+                                            },
+                                            Ok(parsed_temp_count) => {
+                                                //log::trace!("Header: {}",header);
+                                                log::trace!("parsed temp count for device {}: {}",self.tty.name().unwrap_or("unknown shell".to_string()),temp_count);
+                                                return Response::TempCount(parsed_temp_count)
+                                            }
+                                        }
                                     }
                                 }
                             }

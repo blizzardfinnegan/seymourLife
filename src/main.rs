@@ -1,6 +1,6 @@
-use seymour_poc_rust::{device::Device, 
-                       tty::{self,TTY,Response},
-                       gpio_facade::GpioPins};
+use seymour_life_rust::{device::Device, 
+                        tty::{self,TTY,Response},
+                        gpio_facade::GpioPins};
 use std::{io::{stdin,stdout,Write},
           thread::{self, JoinHandle},
           path::Path,

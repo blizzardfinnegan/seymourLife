@@ -1,7 +1,7 @@
 #cargo-features = ["per-package-target"]
 
 [package]
-name = "seymour_poc_rust"
+name = "seymour_life_rust"
 version = "2.2.0"
 edition = "2021"
 
