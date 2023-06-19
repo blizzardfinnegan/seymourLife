@@ -351,17 +351,21 @@ impl Device{
         self.usb_tty.write_to_device(Command::Login);
         while self.usb_tty.read_from_device(None) != Response::ShellPrompt {}
         self.usb_tty.write_to_device(Command::GetSerial);
-        match self.usb_tty.read_from_device(None){
-            Response::Serial(Some(contains_serial)) =>{
-                for line in contains_serial.split("\n").collect::<Vec<&str>>(){
-                    if !line.contains(':') { continue; }
-                    let (section,value) = line.split_once(':').unwrap();
-                    if section.contains(SERIAL_HEADER){
-                        self.serial = value.trim().replace("\"","");
+        loop{
+            match self.usb_tty.read_from_device(None){
+                Response::Serial(Some(contains_serial)) =>{
+                    for line in contains_serial.split("\n").collect::<Vec<&str>>(){
+                        if !line.contains(':') { continue; }
+                        let (section,value) = line.split_once(':').unwrap();
+                        if section.contains(SERIAL_HEADER){
+                            self.serial = value.trim().replace("\"","");
+                        }
                     }
-                }
-            },
-            _ => todo!(),
+                    break;
+                },
+                Response::DebugInit => { continue; }
+                _ => todo!(),
+            }
         }
         self.reboot();
         //self.serial = serial.to_string();
