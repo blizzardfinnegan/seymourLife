@@ -357,7 +357,7 @@ impl Device{
                     if !line.contains(':') { continue; }
                     let (section,value) = line.split_once(':').unwrap();
                     if section.contains(SERIAL_HEADER){
-                        self.serial = value.replace("\"","");
+                        self.serial = value.trim().replace("\"","");
                     }
                 }
             },
