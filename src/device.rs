@@ -352,7 +352,8 @@ impl Device{
         while self.usb_tty.read_from_device(None) != Response::ShellPrompt {}
         self.usb_tty.write_to_device(Command::GetSerial);
         loop{
-            match self.usb_tty.read_from_device(None){
+            let return_value = self.usb_tty.read_from_device(None);
+            match return_value{
                 Response::Serial(Some(contains_serial)) =>{
                     for line in contains_serial.split("\n").collect::<Vec<&str>>(){
                         if !line.contains(':') { continue; }
@@ -365,7 +366,10 @@ impl Device{
                     break;
                 },
                 Response::DebugInit => { continue; }
-                _ => todo!(),
+                _ => {
+                    log::error!("Bad value: {:?}",return_value);
+                    todo!();
+                },
             }
         }
         self.reboot();
