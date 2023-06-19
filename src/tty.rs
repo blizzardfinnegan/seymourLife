@@ -172,6 +172,7 @@ impl TTY{
                     }
                 }
             }
+            log::warn!("Unable to determine response. Response string is: [{:?}]",read_line);
             return Response::Other;
         }
         else {
