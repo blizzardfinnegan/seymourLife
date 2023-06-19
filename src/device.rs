@@ -365,7 +365,7 @@ impl Device{
                     log::info!("Serial found for device {}",self.serial);
                     break;
                 },
-                Response::DebugInit => { continue; }
+                Response::DebugInit | Response::Empty | Response::EmptyNewline => { continue; }
                 _ => {
                     log::error!("Bad value: {:?}",return_value);
                     todo!();
