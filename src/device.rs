@@ -187,6 +187,7 @@ impl Device{
                             Response::ShellPrompt => break,
                             _ => {
                                 log::error!("Unexpected response from device {}!",self.serial);
+                                log::debug!("brightness menu, catch-all, first loop, {}, {:?}",self.serial,self.usb_tty);
                                 log::error!("Unsure how to continue. Expect data from device {} to be erratic until next cycle.",self.serial);
                                 break;
                             },
@@ -212,6 +213,7 @@ impl Device{
                             },
                             _ => { 
                                 log::error!("Unexpected response from device {}!", self.serial);
+                                log::debug!("brightness menu, catch-all, second loop, {}, {:?}",self.serial,self.usb_tty);
                                 log::error!("Unsure how to continue. Expect data from device {} to be erratic until next cycle.",self.serial);
                                 break;
                             },
@@ -254,6 +256,7 @@ impl Device{
                             Response::ShellPrompt => break,
                             _ => {
                                 log::error!("Unexpected response from device {}!",self.serial);
+                                log::debug!("lifecycle menu, catch-all, first loop, {}, {:?}",self.serial,self.usb_tty);
                                 log::error!("Unsure how to continue. Expect data from device {} to be erratic until next cycle.",self.serial);
                                 break;
                             },
@@ -278,6 +281,7 @@ impl Device{
                             },
                             _ => { 
                                 log::error!("Unexpected response from device {}!", self.serial);
+                                log::debug!("lifecycle menu, catch-all, second loop, {}, {:?}",self.serial,self.usb_tty);
                                 log::error!("Unsure how to continue. Expect data from device {} to be erratic until next cycle.",self.serial);
                                 break;
                             },
