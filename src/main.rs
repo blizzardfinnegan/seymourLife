@@ -56,6 +56,16 @@ fn main(){
         log::debug!("Debug enabled!");
     }
     loop{
+        let mut iteration_count:u64 = 0;
+        if args.debug { 
+            iteration_count = 10000;
+        }
+        else {
+            while iteration_count < 1{
+                iteration_count = int_input_filtering(Some("Enter the number of iterations to complete: "));
+            }
+        }
+
         let gpio = &mut GpioPins::new();
         match std::fs::read_dir("/dev/serial/by-path"){
             Ok(available_ttys)=>{
@@ -125,16 +135,6 @@ fn main(){
                         log::error!("Unable to find GPIO for device with bright screen. Please ensure that the probe well is installed properly, and the calibration key is plugged in.");
                         device.brighten_screen();
                         return;
-                    }
-                }
-
-                let mut iteration_count:u64 = 0;
-                if args.debug { 
-                    iteration_count = 10000;
-                }
-                else {
-                    while iteration_count < 1{
-                        iteration_count = int_input_filtering(Some("Enter the number of iterations to complete: "));
                     }
                 }
 
