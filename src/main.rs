@@ -15,7 +15,7 @@ struct Args{
     debug:bool
 }
 
-const VERSION:&str="2.2.0";
+const VERSION:&str="2.3.0";
 
 fn int_input_filtering(prompt:Option<&str>) -> u64{
     let internal_prompt = prompt.unwrap_or(">>>");
@@ -56,6 +56,16 @@ fn main(){
         log::debug!("Debug enabled!");
     }
     loop{
+        let mut iteration_count:u64 = 0;
+        if args.debug { 
+            iteration_count = 10000;
+        }
+        else {
+            while iteration_count < 1{
+                iteration_count = int_input_filtering(Some("Enter the number of iterations to complete: "));
+            }
+        }
+
         let gpio = &mut GpioPins::new();
         match std::fs::read_dir("/dev/serial/by-path"){
             Ok(available_ttys)=>{
@@ -81,6 +91,7 @@ fn main(){
                                                 match new_device{
                                                     Ok(mut device) => {
                                                         device.darken_screen();
+                                                        device.set_serial();
                                                         Some(device)
                                                     },
                                                     Err(_) => None
@@ -115,30 +126,16 @@ fn main(){
                 log::info!("--------------------------------------\n\n");
 
                 for device in devices.iter_mut(){
-                    device.brighten_screen();
-                    if args.debug{
-                        let location = device.get_location();
-                        log::info!("Init device {}...", location);
-                        device.set_serial(&location);
-                    }
-                    else{
-                        device.set_serial(&input_filtering(Some("Enter the serial of the device with the bright screen: ")).to_string());
-                    }
-                    device.darken_screen();
+                    //device.brighten_screen();
+                    //device.set_serial();
+                    //device.darken_screen();
+                    log::info!("Checking probe well of device {}",device.get_serial());
                     log::debug!("Number of unassigned addresses: {}",gpio.get_unassigned_addresses().len());
                     if !find_gpio(device, gpio){
                         device.set_pin_address(21);
-                        log::error!("Unable to find GPIO for device {}. Please ensure that the probe well is installed properly, and the calibration key is plugged in.",device.get_location());
-                    }
-                }
-
-                let mut iteration_count:u64 = 0;
-                if args.debug { 
-                    iteration_count = 10000;
-                }
-                else {
-                    while iteration_count < 1{
-                        iteration_count = int_input_filtering(Some("Enter the number of iterations to complete: "));
+                        log::error!("Unable to find probe-well for device {}. Please ensure that the probe well is installed properly, and the calibration key is plugged in.",device.get_serial());
+                        device.brighten_screen();
+                        return;
                     }
                 }
 

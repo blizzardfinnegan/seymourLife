@@ -639,7 +639,7 @@ dependencies = [
 
 [[package]]
 name = "seymour_life_rust"
-version = "2.2.0"
+version = "2.3.0"
 dependencies = [
  "chrono",
  "clap",

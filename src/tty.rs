@@ -1,4 +1,7 @@
-use std::{collections::HashMap, io::{BufReader, Write, Read}, time::Duration};
+use std::{collections::HashMap, 
+          io::{BufReader, Write, Read}, 
+          boxed::Box,
+          time::Duration};
 use once_cell::sync::Lazy;
 use serialport::SerialPort;
 use derivative::Derivative;
@@ -24,16 +27,17 @@ pub enum Command{
     DebugMenu,
     Newline,
     Shutdown,
+    GetSerial,
 }
 
 #[derive(Clone,Eq,Derivative,Debug)]
-#[derivative(Copy,PartialEq, Hash)]
+#[derivative(PartialEq, Hash)]
 pub enum Response{
     PasswordPrompt,
     ShellPrompt,
     BPOn,
     BPOff,
-    TempCount(u64),
+    TempCount(Option<u64>),
     LoginPrompt,
     DebugMenu,
     Rebooting,
@@ -44,6 +48,7 @@ pub enum Response{
     PreShellPrompt,
     EmptyNewline,
     DebugInit,
+    Serial(Option<String>),
 }
 
 
@@ -62,21 +67,23 @@ const COMMAND_MAP:Lazy<HashMap<Command,&str>> = Lazy::new(||HashMap::from([
     (Command::DebugMenu," python3 -m debugmenu; shutdown -r now\n"),
     (Command::Newline,"\n"),
     (Command::Shutdown,"shutdown -r now\n"),
+    (Command::GetSerial,"echo 'y1q' | python3 -m debugmenu\n"),
 ]));
 
-const RESPONSES:[(&str,Response);12] = [
+const RESPONSES:[(&str,Response);13] = [
     ("Last login:",Response::PreShellPrompt),
     ("reboot: Restarting",Response::Rebooting),
     ("command not found",Response::FailedDebugMenu),
     ("login:",Response::LoginPrompt),
     ("Password:",Response::PasswordPrompt),
-    ("EXIT Debug menu",Response::ShuttingDown),
+    ("DtCtrlCfgDeviceSerialNum",Response::Serial(None)),
     ("root@",Response::ShellPrompt),
+    ("EXIT Debug menu",Response::ShuttingDown),
     ("Check NIBP In Progress: True",Response::BPOn),
     ("Check NIBP In Progress: False",Response::BPOff),
-    ("SureTemp Probe Pulls:",Response::TempCount(0)),
+    ("SureTemp Probe Pulls:",Response::TempCount(None)),
     (">",Response::DebugMenu),
-    ("Loading App-Framework",Response::DebugInit)
+    ("Loading App-Framework",Response::DebugInit),
 ];
 
 pub struct TTY{
@@ -144,7 +151,7 @@ impl TTY{
                         log::trace!("Successful read of {:?} from tty {}, which matches pattern {:?}",read_line,self.tty.name().unwrap_or("unknown shell".to_string()),enum_value);
                     };
                     self.failed_read_count = 0;
-                    if enum_value == Response::TempCount(0){
+                    if enum_value == Response::TempCount(None){
                         let mut lines = read_line.lines();
                         while let Some(single_line) = lines.next(){
                             if single_line.contains(string){
@@ -155,18 +162,21 @@ impl TTY{
                                         match temp_count.trim().parse::<u64>(){
                                             Err(_) => {
                                                 log::error!("String {} from device {} unable to be parsed!",temp_count,self.tty.name().unwrap_or("unknown shell".to_string()));
-                                                return Response::TempCount(0)
+                                                return Response::TempCount(None)
                                             },
                                             Ok(parsed_temp_count) => {
                                                 //log::trace!("Header: {}",header);
                                                 log::trace!("parsed temp count for device {}: {}",self.tty.name().unwrap_or("unknown shell".to_string()),temp_count);
-                                                return Response::TempCount(parsed_temp_count)
+                                                return Response::TempCount(Some(parsed_temp_count))
                                             }
                                         }
                                     }
                                 }
                             }
                         }
+                    }
+                    else if enum_value == Response::Serial(None) {
+                        return Response::Serial(Some(read_line));
                     }
                     else if enum_value == Response::PasswordPrompt {
                         log::error!("Recieved password prompt on device {}! Something fell apart here. Check preceeding log lines.",self.tty.name().unwrap_or("unknown shell".to_string()));
