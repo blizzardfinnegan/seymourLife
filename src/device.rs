@@ -372,6 +372,7 @@ impl Device{
                 },
             }
         }
+        self.usb_tty.write_to_device(Command::DebugMenu);
         self.reboot();
         self.load_values();
         self.save_values();
