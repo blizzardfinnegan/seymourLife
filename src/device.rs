@@ -106,7 +106,7 @@ impl Device{
                         initial_state = State::LoginPrompt;
                     },
                         //Response::Empty parsing here is potentially in bad faith
-                    Response::Other | Response::Empty | Response::ShellPrompt | Response::FailedDebugMenu |
+                    Response::Other | Response::Empty | Response::ShellPrompt | Response::FailedDebugMenu | Response::DebugInit |
                     Response::LoginPrompt | Response::ShuttingDown | Response::Rebooting | Response::PreShellPrompt => 
                         initial_state = State::LoginPrompt,
                     Response::BPOn | Response::BPOff | Response::TempCount(_) |
@@ -129,6 +129,10 @@ impl Device{
                                 return Err("Failed TTY init. Unknown state, cannot trust.".to_string());
                             }
                         };
+                    },
+                        Response::EmptyNewline => {
+                            log::error!("Unknown state for TTY {:?}!!! Consult logs immediately.",usb_port);
+                            return Err("Failed TTY init. Unknown state, cannot trust.".to_string());
                     },
                 };
             },

@@ -42,6 +42,8 @@ pub enum Response{
     ShuttingDown,
     FailedDebugMenu,
     PreShellPrompt,
+    EmptyNewline,
+    DebugInit,
 }
 
 
@@ -62,7 +64,7 @@ const COMMAND_MAP:Lazy<HashMap<Command,&str>> = Lazy::new(||HashMap::from([
     (Command::Shutdown,"shutdown -r now\n"),
 ]));
 
-const RESPONSES:[(&str,Response);11] = [
+const RESPONSES:[(&str,Response);12] = [
     ("Last login:",Response::PreShellPrompt),
     ("reboot: Restarting",Response::Rebooting),
     ("command not found",Response::FailedDebugMenu),
@@ -74,6 +76,7 @@ const RESPONSES:[(&str,Response);11] = [
     ("Check NIBP In Progress: False",Response::BPOff),
     ("SureTemp Probe Pulls:",Response::TempCount(0)),
     (">",Response::DebugMenu),
+    ("Loading App-Framework",Response::DebugInit)
 ];
 
 pub struct TTY{
@@ -128,6 +131,9 @@ impl TTY{
         _ = reader.read_to_end(&mut read_buffer);
         if read_buffer.len() > 0 {
             let read_line:String = String::from_utf8_lossy(read_buffer.as_slice()).to_string();
+            if read_line.eq("\r\n") {
+                return Response::EmptyNewline;
+            }
             for (string,enum_value) in RESPONSES{
                 if read_line.contains(string){
                     if(enum_value == Response::BPOn) || (enum_value == Response::BPOff) {
