@@ -15,7 +15,7 @@ struct Args{
     debug:bool
 }
 
-const VERSION:&str="2.2.0";
+const VERSION:&str="2.3.0";
 
 fn int_input_filtering(prompt:Option<&str>) -> u64{
     let internal_prompt = prompt.unwrap_or(">>>");
@@ -129,10 +129,11 @@ fn main(){
                     //device.brighten_screen();
                     //device.set_serial();
                     //device.darken_screen();
+                    log::info!("Checking probe well of device {}",device.get_serial());
                     log::debug!("Number of unassigned addresses: {}",gpio.get_unassigned_addresses().len());
                     if !find_gpio(device, gpio){
                         device.set_pin_address(21);
-                        log::error!("Unable to find GPIO for device with bright screen. Please ensure that the probe well is installed properly, and the calibration key is plugged in.");
+                        log::error!("Unable to find probe-well for device {}. Please ensure that the probe well is installed properly, and the calibration key is plugged in.",device.get_serial());
                         device.brighten_screen();
                         return;
                     }
