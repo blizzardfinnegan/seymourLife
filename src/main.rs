@@ -115,20 +115,15 @@ fn main(){
                 log::info!("--------------------------------------\n\n");
 
                 for device in devices.iter_mut(){
-                    device.brighten_screen();
-                    if args.debug{
-                        let location = device.get_location();
-                        log::info!("Init device {}...", location);
-                        device.set_serial(&location);
-                    }
-                    else{
-                        device.set_serial(&input_filtering(Some("Enter the serial of the device with the bright screen: ")).to_string());
-                    }
-                    device.darken_screen();
+                    //device.brighten_screen();
+                    device.set_serial();
+                    //device.darken_screen();
                     log::debug!("Number of unassigned addresses: {}",gpio.get_unassigned_addresses().len());
                     if !find_gpio(device, gpio){
                         device.set_pin_address(21);
-                        log::error!("Unable to find GPIO for device {}. Please ensure that the probe well is installed properly, and the calibration key is plugged in.",device.get_location());
+                        log::error!("Unable to find GPIO for device with bright screen. Please ensure that the probe well is installed properly, and the calibration key is plugged in.");
+                        device.brighten_screen();
+                        return;
                     }
                 }
 

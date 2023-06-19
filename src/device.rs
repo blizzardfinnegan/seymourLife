@@ -8,6 +8,7 @@ const BP_SECTION: &str = "Successful BP tests: ";
 const TEMP_SECTION: &str = "Successful temp tests: ";
 const OUTPUT_FOLDER: &str = "output/";
 const UNINITIALISED_SERIAL: &str = "uninitialised";
+const SERIAL_HEADER: &str = "DtCtrlCfgDeviceSerialNum";
 #[derive(PartialEq,Debug)]
 pub enum State{
     Shutdown,
@@ -130,7 +131,7 @@ impl Device{
                             }
                         };
                     },
-                        Response::EmptyNewline => {
+                        Response::Serial(_) | Response::EmptyNewline => {
                             log::error!("Unknown state for TTY {:?}!!! Consult logs immediately.",usb_port);
                             return Err("Failed TTY init. Unknown state, cannot trust.".to_string());
                     },
@@ -345,8 +346,25 @@ impl Device{
         }
         return true
     }
-    pub fn set_serial(&mut self, serial:&str) -> &mut Self{
-        self.serial = serial.to_string();
+    pub fn set_serial(&mut self) -> &mut Self{
+        self.reboot();
+        self.usb_tty.write_to_device(Command::Login);
+        while self.usb_tty.read_from_device(None) != Response::ShellPrompt {}
+        self.usb_tty.write_to_device(Command::GetSerial);
+        match self.usb_tty.read_from_device(None){
+            Response::Serial(Some(contains_serial)) =>{
+                for line in contains_serial.split("\n").collect::<Vec<&str>>(){
+                    if !line.contains(':') { continue; }
+                    let (section,value) = line.split_once(':').unwrap();
+                    if section.contains(SERIAL_HEADER){
+                        self.serial = value.replace("\"","");
+                    }
+                }
+            },
+            _ => todo!(),
+        }
+        self.reboot();
+        //self.serial = serial.to_string();
         self.load_values();
         self.save_values();
         return self;
@@ -405,14 +423,14 @@ impl Device{
         self.usb_tty.write_to_device(Command::ReadTemp);
         for _ in 0..10 {
             match self.usb_tty.read_from_device(None){
-                Response::TempCount(count) => return count != self.init_temps ,
+                Response::TempCount(Some(count)) => return count != self.init_temps ,
                 _ => {},
             }
         }
 	self.usb_tty.write_to_device(Command::ReadTemp);
 	for _ in 0..10{
 	    match self.usb_tty.read_from_device(None){
-                Response::TempCount(count) => return count != self.init_temps ,
+                Response::TempCount(Some(count)) => return count != self.init_temps ,
 		_ => {},
 	    }
         }
@@ -425,7 +443,7 @@ impl Device{
         self.usb_tty.write_to_device(Command::ReadTemp);
         for _ in 0..10 {
             match self.usb_tty.read_from_device(None){
-                Response::TempCount(count) => {
+                Response::TempCount(Some(count)) => {
                     log::trace!("Count for device {} updated to {}",self.serial,count);
                     self.temps = count;
                     return count
@@ -436,7 +454,7 @@ impl Device{
 	self.usb_tty.write_to_device(Command::ReadTemp);
 	for _ in 0..10{
 	    match self.usb_tty.read_from_device(None){
-                Response::TempCount(count) => {
+                Response::TempCount(Some(count)) => {
                     log::trace!("Count for device {} updated to {}",self.serial,count);
                     self.temps = count;
                     return count
@@ -453,7 +471,7 @@ impl Device{
         self.usb_tty.write_to_device(Command::ReadTemp);
         for _ in 0..10 {
             match self.usb_tty.read_from_device(None){
-                Response::TempCount(count) => {
+                Response::TempCount(Some(count)) => {
                     log::trace!("init temp count set to {} on device {}",count,self.serial);
                     self.init_temps = count;
                     return
@@ -464,7 +482,7 @@ impl Device{
 	self.usb_tty.write_to_device(Command::ReadTemp);
 	for _ in 0..10{
 	    match self.usb_tty.read_from_device(None){
-                Response::TempCount(count) => {
+                Response::TempCount(Some(count)) => {
                     log::trace!("init temp count set to {} on device {}",count,self.serial);
                     self.init_temps = count;
                     return
