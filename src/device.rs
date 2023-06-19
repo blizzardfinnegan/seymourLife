@@ -373,6 +373,8 @@ impl Device{
             }
         }
         self.usb_tty.write_to_device(Command::DebugMenu);
+        while self.usb_tty.read_from_device(None) != Response::DebugMenu {}
+        self.current_state = State::DebugMenu;
         self.reboot();
         self.load_values();
         self.save_values();
