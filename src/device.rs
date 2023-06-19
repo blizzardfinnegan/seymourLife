@@ -264,7 +264,8 @@ impl Device{
                     };
                     self.usb_tty.write_to_device(Command::DebugMenu);
                     loop {
-                        match self.usb_tty.read_from_device(None)   {
+                        let read_in = self.usb_tty.read_from_device(None);
+                        match read_in {
                             Response::PreShellPrompt | Response::Empty | Response::ShuttingDown | Response::Rebooting => {},
                             Response::LoginPrompt => {
                                 self.usb_tty.write_to_device(Command::Login);
@@ -280,7 +281,7 @@ impl Device{
                                 self.usb_tty.write_to_device(Command::DebugMenu);
                             },
                             _ => { 
-                                log::error!("Unexpected response from device {}!", self.serial);
+                                log::error!("Unexpected response from device {}! {:?}", self.serial, read_in);
                                 log::debug!("lifecycle menu, catch-all, second loop, {}, {:?}",self.serial,self.usb_tty);
                                 log::error!("Unsure how to continue. Expect data from device {} to be erratic until next cycle.",self.serial);
                                 break;
