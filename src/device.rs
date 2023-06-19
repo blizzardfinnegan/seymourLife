@@ -186,7 +186,8 @@ impl Device{
                     self.usb_tty.write_to_device(Command::Login);
                     loop {
                         match self.usb_tty.read_from_device(None){
-                            Response::PreShellPrompt | Response::Empty | Response::ShuttingDown | Response::Rebooting => {},
+                            Response::PreShellPrompt | Response::Empty | Response::ShuttingDown | 
+                            Response::DebugInit | Response::EmptyNewline | Response::Rebooting => {},
                             Response::PasswordPrompt => {self.usb_tty.write_to_device(Command::Newline);},
                             Response::ShellPrompt => break,
                             _ => {
@@ -201,7 +202,8 @@ impl Device{
                     self.usb_tty.write_to_device(Command::DebugMenu);
                     loop {
                         match self.usb_tty.read_from_device(None)   {
-                            Response::PreShellPrompt | Response::Empty | Response::ShuttingDown | Response::Rebooting => {},
+                            Response::PreShellPrompt | Response::Empty | Response::ShuttingDown | 
+                            Response::DebugInit | Response::EmptyNewline | Response::Rebooting => {},
                             Response::LoginPrompt => {
                                 self.usb_tty.write_to_device(Command::Login);
                                 while self.usb_tty.read_from_device(None) != Response::ShellPrompt {};
@@ -255,7 +257,8 @@ impl Device{
                     self.usb_tty.write_to_device(Command::Login);
                     loop {
                         match self.usb_tty.read_from_device(None){
-                            Response::PreShellPrompt | Response::Empty | Response::ShuttingDown | Response::Rebooting => {},
+                            Response::PreShellPrompt | Response::Empty | Response::ShuttingDown | 
+                            Response::DebugInit | Response::EmptyNewline | Response::Rebooting => {},
                             Response::PasswordPrompt => {self.usb_tty.write_to_device(Command::Newline);},
                             Response::ShellPrompt => break,
                             _ => {
@@ -270,7 +273,8 @@ impl Device{
                     loop {
                         let read_in = self.usb_tty.read_from_device(None);
                         match read_in {
-                            Response::PreShellPrompt | Response::Empty | Response::ShuttingDown | Response::Rebooting => {},
+                            Response::PreShellPrompt | Response::Empty | Response::ShuttingDown | 
+                            Response::DebugInit | Response::EmptyNewline | Response::Rebooting => {},
                             Response::LoginPrompt => {
                                 self.usb_tty.write_to_device(Command::Login);
                                 while self.usb_tty.read_from_device(None) != Response::ShellPrompt {};
