@@ -361,6 +361,7 @@ impl Device{
                             self.serial = value.trim().replace("\"","");
                         }
                     }
+                    log::info!("Serial found for device {}",self.serial);
                     break;
                 },
                 Response::DebugInit => { continue; }
@@ -368,7 +369,6 @@ impl Device{
             }
         }
         self.reboot();
-        //self.serial = serial.to_string();
         self.load_values();
         self.save_values();
         return self;

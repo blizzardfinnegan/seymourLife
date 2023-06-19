@@ -81,6 +81,7 @@ fn main(){
                                                 match new_device{
                                                     Ok(mut device) => {
                                                         device.darken_screen();
+                                                        device.set_serial();
                                                         Some(device)
                                                     },
                                                     Err(_) => None
@@ -116,7 +117,7 @@ fn main(){
 
                 for device in devices.iter_mut(){
                     //device.brighten_screen();
-                    device.set_serial();
+                    //device.set_serial();
                     //device.darken_screen();
                     log::debug!("Number of unassigned addresses: {}",gpio.get_unassigned_addresses().len());
                     if !find_gpio(device, gpio){
