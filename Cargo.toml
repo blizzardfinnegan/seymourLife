@@ -1,8 +1,8 @@
 #cargo-features = ["per-package-target"]
 
 [package]
-name = "seymour_poc_rust"
-version = "2.1.0"
+name = "seymour_life_rust"
+version = "2.2.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

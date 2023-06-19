@@ -1,6 +1,6 @@
-use seymour_poc_rust::{device::Device, 
-                       tty::{self,TTY,Response},
-                       gpio_facade::GpioPins};
+use seymour_life_rust::{device::Device, 
+                        tty::{self,TTY,Response},
+                        gpio_facade::GpioPins};
 use std::{io::{stdin,stdout,Write},
           thread::{self, JoinHandle},
           path::Path,
@@ -15,7 +15,7 @@ struct Args{
     debug:bool
 }
 
-const VERSION:&str="2.1.0";
+const VERSION:&str="2.2.0";
 
 fn int_input_filtering(prompt:Option<&str>) -> u64{
     let internal_prompt = prompt.unwrap_or(">>>");
@@ -49,8 +49,8 @@ fn input_filtering(prompt:Option<&str>) -> String{
 }
 
 fn main(){
-    setup_logs();
     let args = Args::parse();
+    setup_logs(&args.debug);
     log::info!("Seymour Life Testing version: {}",VERSION);
     if args.debug{
         log::debug!("Debug enabled!");
@@ -110,7 +110,7 @@ fn main(){
                     }
                 }
 
-                log::info!("\n\n--------------------------------------");
+                log::info!("--------------------------------------");
                 log::info!("Number of devices detected: {}",devices.len());
                 log::info!("--------------------------------------\n\n");
 
@@ -118,6 +118,7 @@ fn main(){
                     device.brighten_screen();
                     if args.debug{
                         let location = device.get_location();
+                        log::info!("Init device {}...", location);
                         device.set_serial(&location);
                     }
                     else{
@@ -132,17 +133,23 @@ fn main(){
                 }
 
                 let mut iteration_count:u64 = 0;
-                while iteration_count < 1{
-                    iteration_count = int_input_filtering(Some("Enter the number of iterations to complete: "));
+                if args.debug { 
+                    iteration_count = 10000;
+                }
+                else {
+                    while iteration_count < 1{
+                        iteration_count = int_input_filtering(Some("Enter the number of iterations to complete: "));
+                    }
                 }
 
                 let mut iteration_threads = Vec::new();
                 while let Some(mut device) = devices.pop(){
                     iteration_threads.push(thread::spawn(move||{
+                        device.init_temp_count();
                         for i in 1..=iteration_count{
                             log::info!("Starting iteration {} of {} for device {}...",
                                            i,iteration_count,device.get_serial());
-                            device.test_cycle(None, None);
+                            device.test_cycle(None);
                         }
                     }));
                 }
@@ -161,6 +168,7 @@ fn main(){
 }
 
 fn find_gpio(device:&mut Device,gpio:&mut GpioPins) -> bool{
+    device.init_temp_count();
     for &address in gpio.get_unassigned_addresses(){
         device.set_pin_address(address).start_temp();
         if device.is_temp_running(){
@@ -175,7 +183,7 @@ fn find_gpio(device:&mut Device,gpio:&mut GpioPins) -> bool{
     return false;
 }
 
-pub fn setup_logs(){
+pub fn setup_logs(debug:&bool){
     let chrono_now: DateTime<Local> = Local::now();
     if ! Path::new("logs").is_dir(){
         _ = fs::create_dir("logs");
@@ -198,10 +206,15 @@ pub fn setup_logs(){
                     chrono_now.format("%Y-%m-%d_%H.%M").to_string()
                     )).unwrap()),
         )
-        .chain(
-            fern::Dispatch::new()
-                .level(log::LevelFilter::Info)
-                .chain(std::io::stdout())
-        )
+        .chain({
+            let mut stdout_logger = fern::Dispatch::new();
+            if *debug {
+                stdout_logger = stdout_logger.level(log::LevelFilter::Trace);
+            }
+            else {
+                stdout_logger = stdout_logger.level(log::LevelFilter::Info);
+            }
+                stdout_logger.chain(std::io::stdout())
+        })
         .apply();
 }
