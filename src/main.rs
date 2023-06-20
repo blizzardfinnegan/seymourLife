@@ -1,6 +1,6 @@
-use seymour_life_rust::{device::Device, 
-                        tty::{self,TTY,Response},
-                        gpio_facade::GpioPins};
+use seymour_life::{device::Device, 
+                   tty::{self,TTY,Response},
+                   gpio_facade::GpioPins};
 use std::{io::{stdin,stdout,Write},
           thread::{self, JoinHandle},
           path::Path,
@@ -11,11 +11,22 @@ use clap::Parser;
 #[derive(Parser,Debug)]
 #[command(author,version,about)]
 struct Args{
+    /// Print all logs to screen. Sets iteration count to 50000
     #[arg(short,long,action)]
-    debug:bool
+    debug:bool,
+
+    /// Force manually setting serial numbers
+    #[arg(short,long,action)]
+    manual:bool,
+
+    /// Set iteration count from command line
+    #[arg(short,long)]
+    iterations:Option<u64>
+
 }
 
-const VERSION:&str="2.3.0";
+const VERSION:&str="2.3.1";
+const DEBUG_ITERATION_COUNT:u64=50000;
 
 fn int_input_filtering(prompt:Option<&str>) -> u64{
     let internal_prompt = prompt.unwrap_or(">>>");
@@ -58,7 +69,10 @@ fn main(){
     loop{
         let mut iteration_count:u64 = 0;
         if args.debug { 
-            iteration_count = 10000;
+            iteration_count = DEBUG_ITERATION_COUNT;
+        }
+        else if let Some(value) = args.iterations{
+            iteration_count = value;
         }
         else {
             while iteration_count < 1{
@@ -91,7 +105,9 @@ fn main(){
                                                 match new_device{
                                                     Ok(mut device) => {
                                                         device.darken_screen();
-                                                        device.set_serial();
+                                                        if !args.manual {
+                                                            device.auto_set_serial();
+                                                        }
                                                         Some(device)
                                                     },
                                                     Err(_) => None
@@ -114,9 +130,13 @@ fn main(){
                     possible_devices.push(output);
                 }
 
+                let mut serials_set:bool = true;
                 let mut devices:Vec<Device> = Vec::new();
                 for possible_device in possible_devices.into_iter(){
                     if let Some(device) = possible_device{
+                        if device.get_serial().eq("uninitialised"){
+                            serials_set = false;
+                        }
                         devices.push(device);
                     }
                 }
@@ -126,9 +146,11 @@ fn main(){
                 log::info!("--------------------------------------\n\n");
 
                 for device in devices.iter_mut(){
-                    //device.brighten_screen();
-                    //device.set_serial();
-                    //device.darken_screen();
+                    if !serials_set || args.manual {
+                    device.brighten_screen();
+                    device.manual_set_serial(&input_filtering(Some("Enter the serial of the device with the bright screen: ")).to_string());
+                    device.darken_screen();
+                    }
                     log::info!("Checking probe well of device {}",device.get_serial());
                     log::debug!("Number of unassigned addresses: {}",gpio.get_unassigned_addresses().len());
                     if !find_gpio(device, gpio){

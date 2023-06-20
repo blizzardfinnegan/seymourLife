@@ -346,7 +346,7 @@ impl Device{
         }
         return true
     }
-    pub fn set_serial(&mut self) -> &mut Self{
+    pub fn auto_set_serial(&mut self) -> bool{
         self.reboot();
         self.usb_tty.write_to_device(Command::Login);
         while self.usb_tty.read_from_device(None) != Response::ShellPrompt {}
@@ -368,7 +368,7 @@ impl Device{
                 Response::DebugInit | Response::Empty | Response::EmptyNewline => { continue; }
                 _ => {
                     log::error!("Bad value: {:?}",return_value);
-                    todo!();
+                    return false
                 },
             }
         }
@@ -378,9 +378,15 @@ impl Device{
         self.reboot();
         self.load_values();
         self.save_values();
+        return true
+    }    
+    pub fn manual_set_serial(&mut self, serial:&str) -> &mut Self{
+        self.serial = serial.to_string();
+        self.load_values();
+        self.save_values();
         return self;
     }
-    pub fn get_serial(&mut self) -> &str{
+    pub fn get_serial(&self) -> &str{
         &self.serial
     }
     pub fn get_location(&mut self) -> String{
