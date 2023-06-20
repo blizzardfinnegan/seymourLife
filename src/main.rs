@@ -1,6 +1,6 @@
-use seymour_life_rust::{device::Device, 
-                        tty::{self,TTY,Response},
-                        gpio_facade::GpioPins};
+use seymour_life::{device::Device, 
+                   tty::{self,TTY,Response},
+                   gpio_facade::GpioPins};
 use std::{io::{stdin,stdout,Write},
           thread::{self, JoinHandle},
           path::Path,
@@ -25,7 +25,7 @@ struct Args{
 
 }
 
-const VERSION:&str="2.3.0";
+const VERSION:&str="2.3.1";
 const DEBUG_ITERATION_COUNT:u64=50000;
 
 fn int_input_filtering(prompt:Option<&str>) -> u64{

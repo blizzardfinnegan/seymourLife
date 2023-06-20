@@ -68,4 +68,4 @@ sudo dnf install rust-libudev-sys-devel rust-pkg-config-devel
 #### Nix
 This applies to both NixOS, and any distribution where the [Nix package manager](https://nixos.org/download.html) can be installed. 
 
-If you have the Nix package manager installed, this project comes with a `shell.nix` package containing the necessary build dependencies. Simply run `nix-shell` to download the necessary dependencies. 
+If you have the Nix package manager installed, this project comes with a `shell.nix` containing the necessary build dependencies. Simply run `nix-shell` to download the necessary dependencies. 

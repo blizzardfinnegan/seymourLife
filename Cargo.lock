@@ -638,8 +638,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "seymour_life_rust"
-version = "2.3.0"
+name = "seymour_life"
+version = "2.3.1"
 dependencies = [
  "chrono",
  "clap",
