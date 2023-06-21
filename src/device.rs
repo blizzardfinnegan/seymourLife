@@ -30,6 +30,7 @@ pub struct Device{
     reboots: u64,
     temps: u64,
     init_temps: u64,
+    temp_offset: u64,
     bps: u64
 }
 
@@ -76,7 +77,7 @@ impl Device{
                                             self.bps = value;
                                         },
                                         TEMP_SECTION => {
-                                            self.temps = value;
+                                            self.temp_offset = value;
                                         },
                                         _ => ()
                                     };
@@ -150,6 +151,7 @@ impl Device{
                     current_state: initial_state,
                     reboots: 0,
                     temps: 0,
+                    temp_offset: 0,
                     init_temps: 0,
                     bps: 0
                 };
@@ -328,9 +330,10 @@ impl Device{
             output_data.push_str(TEMP_SECTION);
             log::trace!("Current temps: [{}]",self.temps);
             log::trace!("Initial temps: [{}]",self.init_temps);
-            let saved_temps = self.temps - self.init_temps;
+            let saved_temps = (self.temps - self.init_temps) + self.temp_offset;
             output_data.push_str(&saved_temps.to_string());
             output_data.push_str("\n");
+            log::trace!("final data to write: [{:?}]",output_data);
             let temp = file_name.write_all(output_data.as_bytes());
             match temp{
                 Err(error) => {
