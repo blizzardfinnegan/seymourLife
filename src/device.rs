@@ -3,9 +3,9 @@ use crate::tty::{TTY, Response,Command};
 use rppal::gpio::{Gpio,OutputPin};
 
 const TEMP_WAIT:Duration = Duration::from_secs(3);
-const REBOOTS_SECTION: &str = "Reboots: ";
-const BP_SECTION: &str = "Successful BP tests: ";
-const TEMP_SECTION: &str = "Successful temp tests: ";
+const REBOOTS_SECTION: &str = "Reboots";
+const BP_SECTION: &str = "Successful BP tests";
+const TEMP_SECTION: &str = "Successful temp tests";
 const OUTPUT_FOLDER: &str = "output/";
 const UNINITIALISED_SERIAL: &str = "uninitialised";
 const SERIAL_HEADER: &str = "DtCtrlCfgDeviceSerialNum";
@@ -82,7 +82,9 @@ impl Device{
                                             self.temp_offset = value;
                                             log::trace!("Temp offset set to {:?}",self.temp_offset);
                                         },
-                                        _ => ()
+                                        _ => {
+                                            log::info!("Invalid import value: [{:?}]. Please ensure that the output directory is clean.",section_and_data);
+                                        }
                                     };
                                 }
                                 Err(_) => {
