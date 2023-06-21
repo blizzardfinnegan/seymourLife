@@ -113,10 +113,8 @@ impl Device{
                     Response::BPOn | Response::BPOff | Response::TempCount(_) |
                     Response::DebugMenu=>{
                         usb_port.write_to_device(Command::Quit);
-                        _ = usb_port.read_from_device(None);
-                        usb_port.write_to_device(Command::Newline);
                         match usb_port.read_from_device(None){
-                            Response::Rebooting => {
+                            Response::ShuttingDown | Response::Rebooting => {
                                 while usb_port.read_from_device(None) != Response::LoginPrompt {}
                                 initial_state = State::LoginPrompt;
                             },
