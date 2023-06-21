@@ -23,9 +23,7 @@ Note that this command MUST be run as `sudo`/root, due to the way it interacts w
 
 ## Build From Source
 
-Note: *At this time, this project can only reliably be built on Linux. Build instructions for Windows will be written eventually.*
-
-To build this project from source, first, download the repository. This can be done by using the Download ZIP button, or running the following command in a terminal where `git` is installed:
+To build this project from source *ON A RASPBERRY PI*, first, download the repository. This can be done by using the Download ZIP button, or running the following command in a terminal where `git` is installed:
 ```bash
 git clone https://git.blizzard.systems/blizzardfinnegan/seymourLifeRust
 ```
@@ -43,4 +41,36 @@ sudo ./target/release/seymour_life
 ```
 
 You can also build without the `--release` flag, which wil take less time, but will be less optimised for the hardware. If you do this, substitue `./target/release/seymour_life` for `./target/debug/seymour_life` in the above command.
+
+
+## Cross-Compilation
+
+Cross compilation is possible with this project, if you do not have a Raspberry Pi available specifically for compilation. Compilation directly on the Pi is rather intensive, and takes significantly longer than cross-compiling. However, cross-compiling by default will fail, due to a bad linker. 
+
+To resolve this issue, find the `.cargo` folder. For Windows users, it is located in `C:\Users\[username]`, and for Linux users it is located in `~` or `$HOME`. If you are on Linux, you will need to be sure to show hidden files. 
+
+In this `.cargo` folder, create a new file, named `config`. In it, add the following lines in the relevant sections below.
+
+Once this file is added, you can then run one of the following commands to create the executable. Note that the final executable will be in `target/aarch64-unknown-linux-musl`, rather than `target`. 
+
+```bash
+cargo build --target aarch64-unknown-linux-musl
+# OR
+cargo build --release --target aarch64-unknown-linux-musl
+```
+
+#### Windows
+```toml
+[target.aarch64-unknown-linux-musl]
+linker = rust-lld
+```
+
+#### Linux
+
+```toml
+[target.aarch64-unknown-linux-musl]
+linker = lld
+```
+Make sure `lld` is installed as well. This can be found in your distribution's package manager, or directly distributed by LLVM. 
+
 
