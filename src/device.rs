@@ -72,12 +72,15 @@ impl Device{
                                     match section {
                                         REBOOTS_SECTION => {
                                             self.reboots = value;
+                                            log::trace!("Reboots set to {:?}",self.reboots);
                                         },
                                         BP_SECTION => {
-                                            self.bps = value;
+                                            self.bps = value.clone();
+                                            log::trace!("BPS set to {:?}",self.bps);
                                         },
                                         TEMP_SECTION => {
                                             self.temp_offset = value;
+                                            log::trace!("Temp offset set to {:?}",self.temp_offset);
                                         },
                                         _ => ()
                                     };
@@ -525,18 +528,20 @@ impl Device{
     pub fn reboot(&mut self) -> () {
         self.usb_tty.write_to_device(Command::Quit);
         let mut successful_reboot:bool = false;
-        let mut exited_menu:bool = false;
+        //let mut exited_menu:bool = false;
         loop{
             match self.usb_tty.read_from_device(None){
                 Response::LoginPrompt => break,
                 Response::Rebooting => {
                     log::trace!("Successful reboot detected for device {}.",self.serial);
                     successful_reboot = true;
-                    if !exited_menu { log::info!("Unusual reboot detected for device {}. Please check logs.",self.serial); }
+                    //This error message is turning out to be more false positive than anything
+                    //else. Reboots can sometimes dump both reboot flag and shutdown flag at once.
+                    //if !exited_menu { log::info!("Unusual reboot detected for device {}. Please check logs.",self.serial); }
                 },
                 Response::ShuttingDown => {
                     log::trace!("Exiting debug menu on device {}.",self.serial);
-                    exited_menu = true;
+                    //exited_menu = true;
                 },
                 _ => {}
             }
