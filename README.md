@@ -44,28 +44,3 @@ sudo ./target/release/seymour_life
 
 You can also build without the `--release` flag, which wil take less time, but will be less optimised for the hardware. If you do this, substitue `./target/release/seymour_life` for `./target/debug/seymour_life` in the above command.
 
-### Build Dependencies
-
-The following dependencies are also necessary for building this project:
-- `pkg-config`
-- `libudev`
-
-See below for platform specific requirements.
-
-#### Debian-based
-This applies for all distributions of Linux using the `apt` package manager, including but not limited to Debian, Ubuntu, Raspbian/Raspberry Pi OS, and Linux Mint.
-
-```bash
-sudo apt-get install librust-libudev-sys-dev librust-pkg-config-dev
-```
-
-#### Fedora-based
-This applies for all distributions of Linux using the `dnf` package manager, including but not limited to CentOS, Redhat Enterprise Linux (RHEL), and Fedora.
-```bash
-sudo dnf install rust-libudev-sys-devel rust-pkg-config-devel
-```
-
-#### Nix
-This applies to both NixOS, and any distribution where the [Nix package manager](https://nixos.org/download.html) can be installed. 
-
-If you have the Nix package manager installed, this project comes with a `shell.nix` containing the necessary build dependencies. Simply run `nix-shell` to download the necessary dependencies. 
