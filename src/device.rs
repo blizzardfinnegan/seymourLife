@@ -7,6 +7,7 @@ const REBOOTS_SECTION: &str = "Reboots";
 const BP_SECTION: &str = "Successful BP tests";
 const TEMP_SECTION: &str = "Successful temp tests";
 const OUTPUT_FOLDER: &str = "output/";
+const SECTION_SEPARATOR: &str = ": ";
 const UNINITIALISED_SERIAL: &str = "uninitialised";
 const SERIAL_HEADER: &str = "DtCtrlCfgDeviceSerialNum";
 #[derive(PartialEq,Debug)]
@@ -63,7 +64,7 @@ impl Device{
                     for line in file_lines {
                         if line.len() > 0{
                             log::trace!("{:?}",line);
-                            let section_and_data:Vec<&str> = line.split(": ").collect();
+                            let section_and_data:Vec<&str> = line.split(SECTION_SEPARATOR).collect();
                             let section:&str = section_and_data[0];
                             let possible_value:Result<u64, std::num::ParseIntError> = section_and_data[1].trim().parse::<u64>();
                             match possible_value{
@@ -327,12 +328,15 @@ impl Device{
         if let Some(ref mut file_name) = self.output_file{
             log::debug!("Writing to file!");
             let mut output_data = REBOOTS_SECTION.to_string();
+            output_data.push_str(SECTION_SEPARATOR);
             output_data.push_str(&self.reboots.to_string());
             output_data.push_str("\n");
             output_data.push_str(BP_SECTION);
+            output_data.push_str(SECTION_SEPARATOR);
             output_data.push_str(&self.bps.to_string());
             output_data.push_str("\n");
             output_data.push_str(TEMP_SECTION);
+            output_data.push_str(SECTION_SEPARATOR);
             log::trace!("Current temps: [{}]",self.temps);
             log::trace!("Initial temps: [{}]",self.init_temps);
             let saved_temps = (self.temps - self.init_temps) + self.temp_offset;
