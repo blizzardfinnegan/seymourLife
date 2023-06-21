@@ -80,6 +80,7 @@ fn main(){
             }
         }
 
+        log::info!("Testing all available USB ports for connected devices. This may take several minutes, and devices may reboot several times.");
         let gpio = &mut GpioPins::new();
         match std::fs::read_dir("/dev/serial/by-path"){
             Ok(available_ttys)=>{
@@ -93,7 +94,7 @@ fn main(){
                                 Ok(tty_real_ref)=>{
                                     let tty_path =  tty_real_ref.path();
                                     let tty_name = tty_path.to_string_lossy();
-                                    log::info!("Testing port {}. This may take a moment...",&tty_name);
+                                    log::debug!("Testing port {}",&tty_name);
                                     let possible_port = TTY::new(&tty_name);
                                     match possible_port{
                                         Some(mut port) =>{
@@ -145,6 +146,7 @@ fn main(){
                 log::info!("Number of devices detected: {}",devices.len());
                 log::info!("--------------------------------------\n\n");
 
+                log::info!("Setting up probe wells for all devices. This may take several minutes...");
                 for device in devices.iter_mut(){
                     if !serials_set || args.manual {
                     device.brighten_screen();
@@ -157,7 +159,7 @@ fn main(){
                         device.set_pin_address(21);
                         log::error!("Unable to find probe-well for device {}. Please ensure that the probe well is installed properly, and the calibration key is plugged in.",device.get_serial());
                         device.brighten_screen();
-                        return;
+                        panic!();
                     }
                 }
 
