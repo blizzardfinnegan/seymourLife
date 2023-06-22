@@ -45,32 +45,16 @@ You can also build without the `--release` flag, which wil take less time, but w
 
 ## Cross-Compilation
 
-Cross compilation is possible with this project, if you do not have a Raspberry Pi available specifically for compilation. Compilation directly on the Pi is rather intensive, and takes significantly longer than cross-compiling. However, cross-compiling by default will fail, due to a bad linker. 
+Cross compilation is possible with this project, if you do not have a Raspberry Pi available specifically for compilation. Compilation directly on the Pi is rather intensive, and takes significantly longer than cross-compiling. 
 
-To resolve this issue, find the `.cargo` folder. For Windows users, it is located in `C:\Users\[username]`, and for Linux users it is located in `~` or `$HOME`. If you are on Linux, you will need to be sure to show hidden files. 
+If you are compiling on Linux, cross-compilation has a dependency of `lld`. This can be found in your distribution's package manager, or directly distributed by LLVM. 
 
-In this `.cargo` folder, create a new file, named `config`. In it, add the following lines in the relevant sections below.
-
-Once this file is added, you can then run one of the following commands to create the executable. Note that the final executable will be in `target/aarch64-unknown-linux-musl`, rather than `target`. 
+If you are compiling on Windows, to safely cross-compile, you must modify the `.cargo/config.toml` file. Replace `lld` with `rust-lld`, then cross-compilation should work properly.
 
 ```bash
 cargo build --target aarch64-unknown-linux-musl
 # OR
 cargo build --release --target aarch64-unknown-linux-musl
 ```
-
-#### Windows
-```toml
-[target.aarch64-unknown-linux-musl]
-linker = rust-lld
-```
-
-#### Linux
-
-```toml
-[target.aarch64-unknown-linux-musl]
-linker = lld
-```
-Make sure `lld` is installed as well. This can be found in your distribution's package manager, or directly distributed by LLVM. 
 
 
