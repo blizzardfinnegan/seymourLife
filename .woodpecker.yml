@@ -1,9 +1,9 @@
 pipeline:
   build:
-    image: rust:bookworm
+    image: nixos/nix:latest
     commands:
+      - nix-shell
       - cargo check
-      - apt update && apt install -y lld
       - cargo build --release --target aarch64-unknown-linux-musl
   publish:
     image: woodpeckerci/plugin-gitea-release
