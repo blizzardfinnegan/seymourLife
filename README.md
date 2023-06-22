@@ -47,7 +47,7 @@ You can also build without the `--release` flag, which wil take less time, but w
 
 Cross compilation is possible with this project, if you do not have a Raspberry Pi available specifically for compilation. Compilation directly on the Pi is rather intensive, and takes significantly longer than cross-compiling. 
 
-If you are compiling on Linux, cross-compilation has a dependency of `lld`. This can be found in your distribution's package manager, or directly distributed by LLVM. 
+If you are compiling on Linux, cross-compilation has a dependency of `lld`. This can be found in your distribution's package manager, or directly distributed by LLVM. For Nix users, a predefined `shell.nix` file has been provided for your convenience.
 
 If you are compiling on Windows, to safely cross-compile, you must modify the `.cargo/config.toml` file. Replace `lld` with `rust-lld`, then cross-compilation should work properly.
 
