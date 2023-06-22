@@ -2,7 +2,7 @@ pipeline:
   build:
     image: nixos/nix:latest
     commands:
-      - nix-shell --run cargo build --release --target aarch64-unknown-linux-musl
+      - nix-shell --run 'cargo build --release --target aarch64-unknown-linux-musl'
   publish:
     image: woodpeckerci/plugin-gitea-release
     settings:
