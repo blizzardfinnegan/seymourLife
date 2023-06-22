@@ -4,6 +4,8 @@ pipeline:
     commands:
       - nix-shell --run 'cargo build --release --target aarch64-unknown-linux-musl'
   publish:
+    when:
+      event: tag
     image: woodpeckerci/plugin-gitea-release
     settings:
       base_url: https://git.blizzard.systems
