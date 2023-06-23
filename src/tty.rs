@@ -87,8 +87,7 @@ const RESPONSES:[(&str,Response);13] = [
 ];
 
 pub struct TTY{
-    tty: Box<dyn SerialPort>,
-    failed_read_count: u8
+    tty: Box<dyn SerialPort>
 }
 impl std::fmt::Debug for TTY{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result{
@@ -114,10 +113,7 @@ impl TTY{
     pub fn new(serial_location:&str) -> Option<Self>{
         let possible_tty = serialport::new(serial_location,BAUD_RATE).timeout(SERIAL_READ_TIMEOUT).open();
         if let Ok(tty) = possible_tty{
-            Some(TTY { 
-                tty,
-                failed_read_count: 0
-            })
+            Some(TTY{tty,})
         } else{
             None
         }
@@ -150,7 +146,6 @@ impl TTY{
                     else{
                         log::trace!("Successful read of {:?} from tty {}, which matches pattern {:?}",read_line,self.tty.name().unwrap_or("unknown shell".to_string()),enum_value);
                     };
-                    self.failed_read_count = 0;
                     if enum_value == Response::TempCount(None){
                         let mut lines = read_line.lines();
                         while let Some(single_line) = lines.next(){
@@ -165,7 +160,6 @@ impl TTY{
                                                 return Response::TempCount(None)
                                             },
                                             Ok(parsed_temp_count) => {
-                                                //log::trace!("Header: {}",header);
                                                 log::trace!("parsed temp count for device {}: {}",self.tty.name().unwrap_or("unknown shell".to_string()),temp_count);
                                                 return Response::TempCount(Some(parsed_temp_count))
                                             }
@@ -193,16 +187,6 @@ impl TTY{
         }
         else {
             log::debug!("Read an empty string from device {:?}. Possible read error.", self);
-            //Due to a linux kernel power-saving setting that is overly complicated to fix,
-            //Serial connections will drop for a moment before re-opening, at seemingly-random
-            //intervals. The below is an attempt to catch and recover from this behaviour.
-            self.failed_read_count += 1;
-            if self.failed_read_count >= 15{
-                self.failed_read_count = 0;
-                let tty_location = self.tty.name().expect("Unable to read tty name!");
-                self.tty = serialport::new(tty_location,BAUD_RATE).timeout(SERIAL_READ_TIMEOUT).open().expect("Unable to open serial connection!");
-                return self.read_from_device(_break_char);
-            }
             return Response::Empty;
         };
     }

@@ -40,7 +40,7 @@ impl Device{
         if ! Path::new(&OUTPUT_FOLDER).is_dir(){
             _ = fs::create_dir(&OUTPUT_FOLDER);
         };
-        log::debug!("{:?}",&self.serial);
+        //log::debug!("{:?}",&self.serial);
         let output_path:String = OUTPUT_FOLDER.to_owned() + &self.serial + ".txt";
         if ! Path::new(&output_path).exists(){
             log::debug!("Creating file {}",&output_path);
@@ -63,28 +63,28 @@ impl Device{
                     log::trace!("{:?}",file_contents);
                     for line in file_lines {
                         if line.len() > 0{
-                            log::trace!("{:?}",line);
+                            //log::trace!("{:?}",line);
                             let section_and_data:Vec<&str> = line.split(SECTION_SEPARATOR).collect();
                             let section:&str = section_and_data[0];
                             let possible_value:Result<u64, std::num::ParseIntError> = section_and_data[1].trim().parse::<u64>();
                             match possible_value{
                                 Ok(value) => {
-                                    log::trace!("{:?} value: [{:?}]",section,value);
+                                    //log::trace!("{:?} value: [{:?}]",section,value);
                                     match section {
                                         REBOOTS_SECTION => {
                                             self.reboots = value;
-                                            log::trace!("Reboots set to {:?}",self.reboots);
+                                            //log::trace!("Reboots set to {:?}",self.reboots);
                                         },
                                         BP_SECTION => {
                                             self.bps = value.clone();
-                                            log::trace!("BPS set to {:?}",self.bps);
+                                            //log::trace!("BPS set to {:?}",self.bps);
                                         },
                                         TEMP_SECTION => {
                                             self.temp_offset = value;
-                                            log::trace!("Temp offset set to {:?}",self.temp_offset);
+                                            //log::trace!("Temp offset set to {:?}",self.temp_offset);
                                         },
                                         _ => {
-                                            log::info!("Invalid import value: [{:?}]. Please ensure that the output directory is clean.",section_and_data);
+                                            log::warn!("Invalid import value: [{:?}]. Please ensure that the output directory is clean.",section_and_data);
                                         }
                                     };
                                 }
@@ -324,9 +324,7 @@ impl Device{
                 return false
             }
         }
-        log::trace!("Writing to file: {:?}",self.output_file);
         if let Some(ref mut file_name) = self.output_file{
-            log::debug!("Writing to file!");
             let mut output_data = REBOOTS_SECTION.to_string();
             output_data.push_str(SECTION_SEPARATOR);
             output_data.push_str(&self.reboots.to_string());
@@ -337,12 +335,10 @@ impl Device{
             output_data.push_str("\n");
             output_data.push_str(TEMP_SECTION);
             output_data.push_str(SECTION_SEPARATOR);
-            log::trace!("Current temps: [{}]",self.temps);
-            log::trace!("Initial temps: [{}]",self.init_temps);
             let saved_temps = (self.temps - self.init_temps) + self.temp_offset;
             output_data.push_str(&saved_temps.to_string());
             output_data.push_str("\n");
-            log::trace!("final data to write: [{:?}]",output_data);
+            log::trace!("final data to write to '{:?}': [{:?}]",file_name,output_data);
             let temp = file_name.write_all(output_data.as_bytes());
             match temp{
                 Err(error) => {
@@ -582,7 +578,7 @@ impl Device{
             log::trace!("Has bp ended on device {}? : {:?}",self.serial,bp_end);
             if bp_start != bp_end {
                 self.bps +=1;
-                log::debug!("Increasing bp count for device {} to {}",self.serial,self.bps);
+                log::trace!("Increasing bp count for device {} to {}",self.serial,self.bps);
                 self.save_values();
             }
         }

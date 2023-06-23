@@ -11,7 +11,7 @@ use clap::Parser;
 #[derive(Parser,Debug)]
 #[command(author,version,about)]
 struct Args{
-    /// Print all logs to screen. Sets iteration count to 50000
+    /// Print all logs to screen, improves log verbosity. Sets iteration count to 50000
     #[arg(short,long,action)]
     debug:bool,
 
@@ -19,7 +19,7 @@ struct Args{
     #[arg(short,long,action)]
     manual:bool,
 
-    /// Set iteration count from command line
+    /// Set iteration count from command line. Overrides debug iteration count.
     #[arg(short,long)]
     iterations:Option<u64>
 
@@ -63,16 +63,14 @@ fn main(){
     let args = Args::parse();
     setup_logs(&args.debug);
     log::info!("Seymour Life Testing version: {}",VERSION);
-    if args.debug{
-        log::debug!("Debug enabled!");
-    }
+    log::trace!("Debug enabled!");
     loop{
         let mut iteration_count:u64 = 0;
-        if args.debug { 
-            iteration_count = DEBUG_ITERATION_COUNT;
-        }
-        else if let Some(value) = args.iterations{
+        if let Some(value) = args.iterations{
             iteration_count = value;
+        }
+        else if args.debug { 
+            iteration_count = DEBUG_ITERATION_COUNT;
         }
         else {
             while iteration_count < 1{
@@ -219,14 +217,18 @@ pub fn setup_logs(debug:&bool){
                 message
             ))
         })
-        .chain(
-            fern::Dispatch::new()
-                .level(log::LevelFilter::Trace)
-                .chain(fern::log_file(
-                    format!("logs/{0}.log",
-                    chrono_now.format("%Y-%m-%d_%H.%M").to_string()
-                    )).unwrap()),
-        )
+        .chain({
+            let mut file_logger = fern::Dispatch::new();
+            let date_format = chrono_now.format("%Y-%m-%d_%H.%M").to_string();
+            let local_log_file = fern::log_file(format!("logs/{}.log",date_format)).unwrap();
+            if *debug{
+                file_logger = file_logger.level(log::LevelFilter::Trace);
+            }
+            else {
+                file_logger = file_logger.level(log::LevelFilter::Debug);
+            }
+            file_logger.chain(local_log_file)
+        })
         .chain({
             let mut stdout_logger = fern::Dispatch::new();
             if *debug {
