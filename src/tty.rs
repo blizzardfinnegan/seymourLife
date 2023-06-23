@@ -129,7 +129,7 @@ impl TTY{
         let output = self.tty.write_all(COMMAND_MAP.get(&command).unwrap().as_bytes()).is_ok();
         self.last = command;
         _ = self.tty.flush();
-        //std::thread::sleep(std::time::Duration::from_millis(500));
+        std::thread::sleep(std::time::Duration::from_millis(500));
         return output;
     }
 
