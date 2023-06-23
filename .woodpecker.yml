@@ -3,18 +3,21 @@ pipeline:
     image: nixos/nix:latest
     commands:
       - nix-shell --run 'cargo build --release --target aarch64-unknown-linux-musl'
-  publish:
-    when:
-      event: tag
-    image: woodpeckerci/plugin-gitea-release
-    settings:
-      base_url: https://git.blizzard.systems
-      files:
-        - "target/aarch64-unknown-linux-musl/release/seymour_life"
-      checksum: 
-        - "target/aarch64-unknown-linux-musl/release/seymour_life"
-      api_key: ${FORGEJO_API_KEY}
-      target: ${CI_COMMIT_TAG}
-      draft: true
-      prerelease: true
-      title: .woodpecker/title.txt
+        #  publish:
+        #    when:
+        #      event: tag
+        #    image: woodpeckerci/plugin-gitea-release
+        #    settings:
+        #      base_url: https://git.blizzard.systems
+        #      files:
+        #        - "target/aarch64-unknown-linux-musl/release/seymour_life"
+        #      checksum: 
+        #        - "target/aarch64-unknown-linux-musl/release/seymour_life"
+        #      api_key: ${FORGEJO_API}
+        #      secrets:  
+        #        - source: forgejo_api 
+        #          target: FORGEJO_API
+        #      target: ${CI_COMMIT_TAG}
+        #      draft: true
+        #      prerelease: true
+        #      title: .woodpecker/title.txt
