@@ -87,7 +87,8 @@ const RESPONSES:[(&str,Response);13] = [
 ];
 
 pub struct TTY{
-    tty: Box<dyn SerialPort>
+    tty: Box<dyn SerialPort>,
+    last: Command,
 }
 impl std::fmt::Debug for TTY{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result{
@@ -113,18 +114,22 @@ impl TTY{
     pub fn new(serial_location:&str) -> Option<Self>{
         let possible_tty = serialport::new(serial_location,BAUD_RATE).timeout(SERIAL_READ_TIMEOUT).open();
         if let Ok(tty) = possible_tty{
-            Some(TTY{tty,})
+            Some(TTY{tty,last:Command::Quit})
         } else{
             None
         }
     }
 
     pub fn write_to_device(&mut self,command:Command) -> bool {
-        log::debug!("writing {:?} to tty {}...", command, self.tty.name().unwrap_or("unknown".to_string()));
+        if command == self.last{
+            log::trace!("retry send {}",self.tty.name().unwrap_or("unknown".to_string()));
+        }else{
+            log::debug!("writing {:?} to tty {}...", command, self.tty.name().unwrap_or("unknown".to_string()));
+        };
         let output = self.tty.write_all(COMMAND_MAP.get(&command).unwrap().as_bytes()).is_ok();
+        self.last = command;
         _ = self.tty.flush();
-        if command == Command::Login { std::thread::sleep(std::time::Duration::from_secs(2)); }
-        std::thread::sleep(std::time::Duration::from_millis(500));
+        //std::thread::sleep(std::time::Duration::from_millis(500));
         return output;
     }
 
