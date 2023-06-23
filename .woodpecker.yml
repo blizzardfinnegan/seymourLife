@@ -15,7 +15,7 @@ pipeline:
         - "target/aarch64-unknown-linux-musl/release/seymour_life"
       api_key:
         from_secret: API_KEY
-      target: stable
+      target: ${CI_COMMIT_TAG}
       draft: true
       prerelease: true
       title: .woodpecker/title.txt
