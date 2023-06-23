@@ -120,7 +120,7 @@ impl TTY{
     }
 
     pub fn write_to_device(&mut self,command:Command) -> bool {
-        log::trace!("writing {:?} to tty {}...", command, self.tty.name().unwrap_or("unknown".to_string()));
+        log::debug!("writing {:?} to tty {}...", command, self.tty.name().unwrap_or("unknown".to_string()));
         let output = self.tty.write_all(COMMAND_MAP.get(&command).unwrap().as_bytes()).is_ok();
         _ = self.tty.flush();
         if command == Command::Login { std::thread::sleep(std::time::Duration::from_secs(2)); }
@@ -186,7 +186,7 @@ impl TTY{
             return Response::Other;
         }
         else {
-            log::debug!("Read an empty string from device {:?}. Possible read error.", self);
+            log::trace!("Read an empty string from device {:?}. Possible read error.", self);
             return Response::Empty;
         };
     }
