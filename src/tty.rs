@@ -7,7 +7,7 @@ use serialport::SerialPort;
 use derivative::Derivative;
 
 const BAUD_RATE:u32 = 115200;
-const SERIAL_READ_TIMEOUT: std::time::Duration = Duration::from_millis(500);
+const SERIAL_TIMEOUT: std::time::Duration = Duration::from_millis(500);
 
 
 #[derive(Eq,Derivative,Debug)]
@@ -112,7 +112,7 @@ impl std::fmt::Debug for TTY{
 
 impl TTY{
     pub fn new(serial_location:&str) -> Option<Self>{
-        let possible_tty = serialport::new(serial_location,BAUD_RATE).timeout(SERIAL_READ_TIMEOUT).open();
+        let possible_tty = serialport::new(serial_location,BAUD_RATE).timeout(SERIAL_TIMEOUT).open();
         if let Ok(tty) = possible_tty{
             Some(TTY{tty,last:Command::Quit})
         } else{
@@ -129,7 +129,7 @@ impl TTY{
         let output = self.tty.write_all(COMMAND_MAP.get(&command).unwrap().as_bytes()).is_ok();
         self.last = command;
         _ = self.tty.flush();
-        std::thread::sleep(std::time::Duration::from_millis(500));
+        std::thread::sleep(SERIAL_TIMEOUT);
         return output;
     }
 
