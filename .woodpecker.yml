@@ -14,7 +14,9 @@ pipeline:
       checksum: 
         - "target/aarch64-unknown-linux-musl/release/seymour_life"
       api_key: ${FORGEJO_API}
-      secrets: [ forgejo_api ]
+      secrets:  
+        - source: forgejo_api 
+          target: FORGEJO_API
       target: ${CI_COMMIT_TAG}
       draft: true
       prerelease: true
