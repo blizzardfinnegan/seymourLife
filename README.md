@@ -1,3 +1,4 @@
+[![status-badge](https://ci.blizzard.systems/api/badges/blizzardfinnegan/seymourLifeRust/status.svg?branch=stable)](https://ci.blizzard.systems/blizzardfinnegan/seymourLifeRust)
 # Seymour Life
 
 This is a personal/professional project, which makes use of serial communications (tty over USB via UART) and Raspberry Pi GPIO to simulate long term use of a Seymour device.
@@ -23,9 +24,7 @@ Note that this command MUST be run as `sudo`/root, due to the way it interacts w
 
 ## Build From Source
 
-Note: *At this time, this project can only reliably be built on Linux. Build instructions for Windows will be written eventually.*
-
-To build this project from source, first, download the repository. This can be done by using the Download ZIP button, or running the following command in a terminal where `git` is installed:
+To build this project from source *ON A RASPBERRY PI*, first, download the repository. This can be done by using the Download ZIP button, or running the following command in a terminal where `git` is installed:
 ```bash
 git clone https://git.blizzard.systems/blizzardfinnegan/seymourLifeRust
 ```
@@ -44,28 +43,19 @@ sudo ./target/release/seymour_life
 
 You can also build without the `--release` flag, which wil take less time, but will be less optimised for the hardware. If you do this, substitue `./target/release/seymour_life` for `./target/debug/seymour_life` in the above command.
 
-### Build Dependencies
 
-The following dependencies are also necessary for building this project:
-- `pkg-config`
-- `libudev`
+## Cross-Compilation
 
-See below for platform specific requirements.
+Cross compilation is possible with this project, if you do not have a Raspberry Pi available specifically for compilation. Compilation directly on the Pi is rather intensive, and takes significantly longer than cross-compiling. 
 
-#### Debian-based
-This applies for all distributions of Linux using the `apt` package manager, including but not limited to Debian, Ubuntu, Raspbian/Raspberry Pi OS, and Linux Mint.
+If you are compiling on Linux, cross-compilation has a dependency of `lld`. This can be found in your distribution's package manager, or directly distributed by LLVM. For Nix users, a predefined `shell.nix` file has been provided for your convenience.
+
+If you are compiling on Windows, to safely cross-compile, you must modify the `.cargo/config.toml` file. Replace `lld` with `rust-lld`, then cross-compilation should work properly.
 
 ```bash
-sudo apt-get install librust-libudev-sys-dev librust-pkg-config-dev
+cargo build --target aarch64-unknown-linux-musl
+# OR
+cargo build --release --target aarch64-unknown-linux-musl
 ```
 
-#### Fedora-based
-This applies for all distributions of Linux using the `dnf` package manager, including but not limited to CentOS, Redhat Enterprise Linux (RHEL), and Fedora.
-```bash
-sudo dnf install rust-libudev-sys-devel rust-pkg-config-devel
-```
 
-#### Nix
-This applies to both NixOS, and any distribution where the [Nix package manager](https://nixos.org/download.html) can be installed. 
-
-If you have the Nix package manager installed, this project comes with a `shell.nix` containing the necessary build dependencies. Simply run `nix-shell` to download the necessary dependencies. 

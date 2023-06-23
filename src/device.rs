@@ -3,10 +3,11 @@ use crate::tty::{TTY, Response,Command};
 use rppal::gpio::{Gpio,OutputPin};
 
 const TEMP_WAIT:Duration = Duration::from_secs(3);
-const REBOOTS_SECTION: &str = "Reboots: ";
-const BP_SECTION: &str = "Successful BP tests: ";
-const TEMP_SECTION: &str = "Successful temp tests: ";
+const REBOOTS_SECTION: &str = "Reboots";
+const BP_SECTION: &str = "Successful BP tests";
+const TEMP_SECTION: &str = "Successful temp tests";
 const OUTPUT_FOLDER: &str = "output/";
+const SECTION_SEPARATOR: &str = ": ";
 const UNINITIALISED_SERIAL: &str = "uninitialised";
 const SERIAL_HEADER: &str = "DtCtrlCfgDeviceSerialNum";
 #[derive(PartialEq,Debug)]
@@ -30,6 +31,7 @@ pub struct Device{
     reboots: u64,
     temps: u64,
     init_temps: u64,
+    temp_offset: u64,
     bps: u64
 }
 
@@ -38,7 +40,7 @@ impl Device{
         if ! Path::new(&OUTPUT_FOLDER).is_dir(){
             _ = fs::create_dir(&OUTPUT_FOLDER);
         };
-        log::debug!("{:?}",&self.serial);
+        //log::debug!("{:?}",&self.serial);
         let output_path:String = OUTPUT_FOLDER.to_owned() + &self.serial + ".txt";
         if ! Path::new(&output_path).exists(){
             log::debug!("Creating file {}",&output_path);
@@ -61,24 +63,29 @@ impl Device{
                     log::trace!("{:?}",file_contents);
                     for line in file_lines {
                         if line.len() > 0{
-                            log::trace!("{:?}",line);
-                            let section_and_data:Vec<&str> = line.split(": ").collect();
+                            //log::trace!("{:?}",line);
+                            let section_and_data:Vec<&str> = line.split(SECTION_SEPARATOR).collect();
                             let section:&str = section_and_data[0];
                             let possible_value:Result<u64, std::num::ParseIntError> = section_and_data[1].trim().parse::<u64>();
                             match possible_value{
                                 Ok(value) => {
-                                    log::trace!("{:?} value: [{:?}]",section,value);
+                                    //log::trace!("{:?} value: [{:?}]",section,value);
                                     match section {
                                         REBOOTS_SECTION => {
                                             self.reboots = value;
+                                            //log::trace!("Reboots set to {:?}",self.reboots);
                                         },
                                         BP_SECTION => {
-                                            self.bps = value;
+                                            self.bps = value.clone();
+                                            //log::trace!("BPS set to {:?}",self.bps);
                                         },
                                         TEMP_SECTION => {
-                                            self.temps = value;
+                                            self.temp_offset = value;
+                                            //log::trace!("Temp offset set to {:?}",self.temp_offset);
                                         },
-                                        _ => ()
+                                        _ => {
+                                            log::warn!("Invalid import value: [{:?}]. Please ensure that the output directory is clean.",section_and_data);
+                                        }
                                     };
                                 }
                                 Err(_) => {
@@ -113,10 +120,8 @@ impl Device{
                     Response::BPOn | Response::BPOff | Response::TempCount(_) |
                     Response::DebugMenu=>{
                         usb_port.write_to_device(Command::Quit);
-                        _ = usb_port.read_from_device(None);
-                        usb_port.write_to_device(Command::Newline);
                         match usb_port.read_from_device(None){
-                            Response::Rebooting => {
+                            Response::ShuttingDown | Response::Rebooting => {
                                 while usb_port.read_from_device(None) != Response::LoginPrompt {}
                                 initial_state = State::LoginPrompt;
                             },
@@ -152,6 +157,7 @@ impl Device{
                     current_state: initial_state,
                     reboots: 0,
                     temps: 0,
+                    temp_offset: 0,
                     init_temps: 0,
                     bps: 0
                 };
@@ -195,7 +201,7 @@ impl Device{
                                 log::error!("Unexpected response from device {}!",self.serial);
                                 log::debug!("brightness menu, catch-all, first loop, {}, {:?}",self.serial,self.usb_tty);
                                 log::error!("Unsure how to continue. Expect data from device {} to be erratic until next cycle.",self.serial);
-                                break;
+                                //break;
                             },
                         };
                     };
@@ -222,7 +228,7 @@ impl Device{
                                 log::error!("Unexpected response from device {}!", self.serial);
                                 log::debug!("brightness menu, catch-all, second loop, {}, {:?}",self.serial,self.usb_tty);
                                 log::error!("Unsure how to continue. Expect data from device {} to be erratic until next cycle.",self.serial);
-                                break;
+                                //break;
                             },
                         };
                     };
@@ -266,7 +272,7 @@ impl Device{
                                 log::error!("Unexpected response from device {}!",self.serial);
                                 log::debug!("lifecycle menu, catch-all, first loop, {}, {:?}",self.serial,self.usb_tty);
                                 log::error!("Unsure how to continue. Expect data from device {} to be erratic until next cycle.",self.serial);
-                                break;
+                                //break;
                             },
                         };
                     };
@@ -293,7 +299,7 @@ impl Device{
                                 log::error!("Unexpected response from device {}! {:?}", self.serial, read_in);
                                 log::debug!("lifecycle menu, catch-all, second loop, {}, {:?}",self.serial,self.usb_tty);
                                 log::error!("Unsure how to continue. Expect data from device {} to be erratic until next cycle.",self.serial);
-                                break;
+                                //break;
                             },
                         };
                     };
@@ -318,21 +324,21 @@ impl Device{
                 return false
             }
         }
-        log::trace!("Writing to file: {:?}",self.output_file);
         if let Some(ref mut file_name) = self.output_file{
-            log::debug!("Writing to file!");
             let mut output_data = REBOOTS_SECTION.to_string();
+            output_data.push_str(SECTION_SEPARATOR);
             output_data.push_str(&self.reboots.to_string());
             output_data.push_str("\n");
             output_data.push_str(BP_SECTION);
+            output_data.push_str(SECTION_SEPARATOR);
             output_data.push_str(&self.bps.to_string());
             output_data.push_str("\n");
             output_data.push_str(TEMP_SECTION);
-            log::trace!("Current temps: [{}]",self.temps);
-            log::trace!("Initial temps: [{}]",self.init_temps);
-            let saved_temps = self.temps - self.init_temps;
+            output_data.push_str(SECTION_SEPARATOR);
+            let saved_temps = (self.temps - self.init_temps) + self.temp_offset;
             output_data.push_str(&saved_temps.to_string());
             output_data.push_str("\n");
+            log::debug!("final data to write to '{:?}': [{:?}]",file_name,output_data);
             let temp = file_name.write_all(output_data.as_bytes());
             match temp{
                 Err(error) => {
@@ -524,18 +530,20 @@ impl Device{
     pub fn reboot(&mut self) -> () {
         self.usb_tty.write_to_device(Command::Quit);
         let mut successful_reboot:bool = false;
-        let mut exited_menu:bool = false;
+        //let mut exited_menu:bool = false;
         loop{
             match self.usb_tty.read_from_device(None){
                 Response::LoginPrompt => break,
                 Response::Rebooting => {
                     log::trace!("Successful reboot detected for device {}.",self.serial);
                     successful_reboot = true;
-                    if !exited_menu { log::info!("Unusual reboot detected for device {}. Please check logs.",self.serial); }
+                    //This error message is turning out to be more false positive than anything
+                    //else. Reboots can sometimes dump both reboot flag and shutdown flag at once.
+                    //if !exited_menu { log::info!("Unusual reboot detected for device {}. Please check logs.",self.serial); }
                 },
                 Response::ShuttingDown => {
                     log::trace!("Exiting debug menu on device {}.",self.serial);
-                    exited_menu = true;
+                    //exited_menu = true;
                 },
                 _ => {}
             }
@@ -570,7 +578,7 @@ impl Device{
             log::trace!("Has bp ended on device {}? : {:?}",self.serial,bp_end);
             if bp_start != bp_end {
                 self.bps +=1;
-                log::debug!("Increasing bp count for device {} to {}",self.serial,self.bps);
+                log::trace!("Increasing bp count for device {} to {}",self.serial,self.bps);
                 self.save_values();
             }
         }

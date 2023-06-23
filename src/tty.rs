@@ -7,7 +7,7 @@ use serialport::SerialPort;
 use derivative::Derivative;
 
 const BAUD_RATE:u32 = 115200;
-const SERIAL_READ_TIMEOUT: std::time::Duration = Duration::from_millis(500);
+const SERIAL_TIMEOUT: std::time::Duration = Duration::from_millis(500);
 
 
 #[derive(Eq,Derivative,Debug)]
@@ -88,7 +88,7 @@ const RESPONSES:[(&str,Response);13] = [
 
 pub struct TTY{
     tty: Box<dyn SerialPort>,
-    failed_read_count: u8
+    last: Command,
 }
 impl std::fmt::Debug for TTY{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result{
@@ -112,23 +112,24 @@ impl std::fmt::Debug for TTY{
 
 impl TTY{
     pub fn new(serial_location:&str) -> Option<Self>{
-        let possible_tty = serialport::new(serial_location,BAUD_RATE).timeout(SERIAL_READ_TIMEOUT).open();
+        let possible_tty = serialport::new(serial_location,BAUD_RATE).timeout(SERIAL_TIMEOUT).open();
         if let Ok(tty) = possible_tty{
-            Some(TTY { 
-                tty,
-                failed_read_count: 0
-            })
+            Some(TTY{tty,last:Command::Quit})
         } else{
             None
         }
     }
 
     pub fn write_to_device(&mut self,command:Command) -> bool {
-        log::trace!("writing {:?} to tty {}...", command, self.tty.name().unwrap_or("unknown".to_string()));
+        if command == self.last{
+            log::trace!("retry send {}",self.tty.name().unwrap_or("unknown".to_string()));
+        }else{
+            log::debug!("writing {:?} to tty {}...", command, self.tty.name().unwrap_or("unknown".to_string()));
+        };
         let output = self.tty.write_all(COMMAND_MAP.get(&command).unwrap().as_bytes()).is_ok();
+        self.last = command;
         _ = self.tty.flush();
-        if command == Command::Login { std::thread::sleep(std::time::Duration::from_secs(2)); }
-        std::thread::sleep(std::time::Duration::from_millis(500));
+        std::thread::sleep(SERIAL_TIMEOUT);
         return output;
     }
 
@@ -150,7 +151,6 @@ impl TTY{
                     else{
                         log::trace!("Successful read of {:?} from tty {}, which matches pattern {:?}",read_line,self.tty.name().unwrap_or("unknown shell".to_string()),enum_value);
                     };
-                    self.failed_read_count = 0;
                     if enum_value == Response::TempCount(None){
                         let mut lines = read_line.lines();
                         while let Some(single_line) = lines.next(){
@@ -165,7 +165,6 @@ impl TTY{
                                                 return Response::TempCount(None)
                                             },
                                             Ok(parsed_temp_count) => {
-                                                //log::trace!("Header: {}",header);
                                                 log::trace!("parsed temp count for device {}: {}",self.tty.name().unwrap_or("unknown shell".to_string()),temp_count);
                                                 return Response::TempCount(Some(parsed_temp_count))
                                             }
@@ -192,17 +191,7 @@ impl TTY{
             return Response::Other;
         }
         else {
-            log::debug!("Read an empty string from device {:?}. Possible read error.", self);
-            //Due to a linux kernel power-saving setting that is overly complicated to fix,
-            //Serial connections will drop for a moment before re-opening, at seemingly-random
-            //intervals. The below is an attempt to catch and recover from this behaviour.
-            self.failed_read_count += 1;
-            if self.failed_read_count >= 15{
-                self.failed_read_count = 0;
-                let tty_location = self.tty.name().expect("Unable to read tty name!");
-                self.tty = serialport::new(tty_location,BAUD_RATE).timeout(SERIAL_READ_TIMEOUT).open().expect("Unable to open serial connection!");
-                return self.read_from_device(_break_char);
-            }
+            log::trace!("Read an empty string from device {:?}. Possible read error.", self);
             return Response::Empty;
         };
     }

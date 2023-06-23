@@ -11,7 +11,7 @@ use clap::Parser;
 #[derive(Parser,Debug)]
 #[command(author,version,about)]
 struct Args{
-    /// Print all logs to screen. Sets iteration count to 50000
+    /// Print all logs to screen, improves log verbosity. Sets iteration count to 50000
     #[arg(short,long,action)]
     debug:bool,
 
@@ -19,13 +19,13 @@ struct Args{
     #[arg(short,long,action)]
     manual:bool,
 
-    /// Set iteration count from command line
+    /// Set iteration count from command line. Overrides debug iteration count.
     #[arg(short,long)]
     iterations:Option<u64>
 
 }
 
-const VERSION:&str="2.3.1";
+const VERSION:&str="2.3.2";
 const DEBUG_ITERATION_COUNT:u64=50000;
 
 fn int_input_filtering(prompt:Option<&str>) -> u64{
@@ -63,16 +63,14 @@ fn main(){
     let args = Args::parse();
     setup_logs(&args.debug);
     log::info!("Seymour Life Testing version: {}",VERSION);
-    if args.debug{
-        log::debug!("Debug enabled!");
-    }
+    log::trace!("Debug enabled!");
     loop{
         let mut iteration_count:u64 = 0;
-        if args.debug { 
-            iteration_count = DEBUG_ITERATION_COUNT;
-        }
-        else if let Some(value) = args.iterations{
+        if let Some(value) = args.iterations{
             iteration_count = value;
+        }
+        else if args.debug { 
+            iteration_count = DEBUG_ITERATION_COUNT;
         }
         else {
             while iteration_count < 1{
@@ -80,6 +78,7 @@ fn main(){
             }
         }
 
+        log::info!("Testing all available USB ports for connected devices. This may take several minutes, and devices may reboot several times.");
         let gpio = &mut GpioPins::new();
         match std::fs::read_dir("/dev/serial/by-path"){
             Ok(available_ttys)=>{
@@ -93,7 +92,7 @@ fn main(){
                                 Ok(tty_real_ref)=>{
                                     let tty_path =  tty_real_ref.path();
                                     let tty_name = tty_path.to_string_lossy();
-                                    log::info!("Testing port {}. This may take a moment...",&tty_name);
+                                    log::debug!("Testing port {}",&tty_name);
                                     let possible_port = TTY::new(&tty_name);
                                     match possible_port{
                                         Some(mut port) =>{
@@ -145,6 +144,7 @@ fn main(){
                 log::info!("Number of devices detected: {}",devices.len());
                 log::info!("--------------------------------------\n\n");
 
+                log::info!("Setting up probe wells for all devices. This may take several minutes...");
                 for device in devices.iter_mut(){
                     if !serials_set || args.manual {
                     device.brighten_screen();
@@ -157,7 +157,7 @@ fn main(){
                         device.set_pin_address(21);
                         log::error!("Unable to find probe-well for device {}. Please ensure that the probe well is installed properly, and the calibration key is plugged in.",device.get_serial());
                         device.brighten_screen();
-                        return;
+                        panic!();
                     }
                 }
 
@@ -217,14 +217,18 @@ pub fn setup_logs(debug:&bool){
                 message
             ))
         })
-        .chain(
-            fern::Dispatch::new()
-                .level(log::LevelFilter::Trace)
-                .chain(fern::log_file(
-                    format!("logs/{0}.log",
-                    chrono_now.format("%Y-%m-%d_%H.%M").to_string()
-                    )).unwrap()),
-        )
+        .chain({
+            let mut file_logger = fern::Dispatch::new();
+            let date_format = chrono_now.format("%Y-%m-%d_%H.%M").to_string();
+            let local_log_file = fern::log_file(format!("logs/{}.log",date_format)).unwrap();
+            if *debug{
+                file_logger = file_logger.level(log::LevelFilter::Trace);
+            }
+            else {
+                file_logger = file_logger.level(log::LevelFilter::Debug);
+            }
+            file_logger.chain(local_log_file)
+        })
         .chain({
             let mut stdout_logger = fern::Dispatch::new();
             if *debug {
