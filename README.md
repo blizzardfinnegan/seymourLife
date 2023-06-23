@@ -1,4 +1,4 @@
-[![status-badge](https://ci.blizzard.systems/api/badges/blizzardfinnegan/seymourLifeRust/status.svg?branch=devel)](https://ci.blizzard.systems/blizzardfinnegan/seymourLifeRust)
+[![status-badge](https://ci.blizzard.systems/api/badges/blizzardfinnegan/seymourLifeRust/status.svg?branch=stable)](https://ci.blizzard.systems/blizzardfinnegan/seymourLifeRust)
 # Seymour Life
 
 This is a personal/professional project, which makes use of serial communications (tty over USB via UART) and Raspberry Pi GPIO to simulate long term use of a Seymour device.
