@@ -11,9 +11,11 @@ pipeline:
       base_url: https://git.blizzard.systems
       files:
         - "target/aarch64-unknown-linux-musl/release/seymour_life"
+      checksum: 
+        - "target/aarch64-unknown-linux-musl/release/seymour_life"
       api_key:
         from_secret: API_KEY
-      target: devel
+      target: stable
       draft: true
       prerelease: true
-      title: 
+      title: .woodpecker/title.txt
