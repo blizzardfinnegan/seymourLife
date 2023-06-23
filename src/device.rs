@@ -338,7 +338,7 @@ impl Device{
             let saved_temps = (self.temps - self.init_temps) + self.temp_offset;
             output_data.push_str(&saved_temps.to_string());
             output_data.push_str("\n");
-            log::trace!("final data to write to '{:?}': [{:?}]",file_name,output_data);
+            log::debug!("final data to write to '{:?}': [{:?}]",file_name,output_data);
             let temp = file_name.write_all(output_data.as_bytes());
             match temp{
                 Err(error) => {
