@@ -79,13 +79,13 @@ const RESPONSES:[(&str,Response);14] = [
     ("login:",Response::LoginPrompt),
     ("Password:",Response::PasswordPrompt),
     ("DtCtrlCfgDeviceSerialNum",Response::Serial(None)),
+    ("Check NIBP In Progress: True",Response::BPOn),
+    ("Check NIBP In Progress: False",Response::BPOff),
+    ("SureTemp Probe Pulls:",Response::TempCount(None)),
     (">",Response::DebugMenu),
     ("Loading App-Framework",Response::DebugInit),
     ("root@",Response::ShellPrompt),
     ("EXIT Debug menu",Response::ShuttingDown),
-    ("Check NIBP In Progress: True",Response::BPOn),
-    ("Check NIBP In Progress: False",Response::BPOff),
-    ("SureTemp Probe Pulls:",Response::TempCount(None)),
 ];
 
 pub struct TTY{
