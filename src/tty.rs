@@ -71,6 +71,12 @@ const COMMAND_MAP:Lazy<HashMap<Command,&str>> = Lazy::new(||HashMap::from([
     (Command::GetSerial,"echo 'y1q' | python3 -m debugmenu\n"),
 ]));
 
+const COMMAND_RESPONSES: [&str;3] = [
+    "python3 -m debugmenu",
+    "q",
+    "root",
+];
+
 const RESPONSES:[(&str,Response);14] = [
     ("uboot=>",Response::UBoot),
     ("Last login:",Response::PreShellPrompt),
@@ -143,7 +149,12 @@ impl TTY{
             let read_line:String = String::from_utf8_lossy(read_buffer.as_slice()).to_string();
             if read_line.eq("\r\n") {
                 return Response::EmptyNewline;
-            }
+            } 
+            for command in COMMAND_RESPONSES{
+                if read_line.trim().eq(command.trim()){
+                    return self.read_from_device(None);
+                }
+            };
             for (string,enum_value) in RESPONSES{
                 if read_line.contains(string){
                     if(enum_value == Response::BPOn) || (enum_value == Response::BPOff) {
