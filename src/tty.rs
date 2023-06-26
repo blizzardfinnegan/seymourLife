@@ -26,7 +26,7 @@ pub enum Command{
     Login,
     DebugMenu,
     Newline,
-    Shutdown,
+    Reboot,
     GetSerial,
 }
 
@@ -49,6 +49,7 @@ pub enum Response{
     EmptyNewline,
     DebugInit,
     Serial(Option<String>),
+    UBoot,
 }
 
 
@@ -64,26 +65,27 @@ const COMMAND_MAP:Lazy<HashMap<Command,&str>> = Lazy::new(||HashMap::from([
     (Command::UpMenuLevel, "\\"),
     (Command::Login,"root\n"),
     (Command::RedrawMenu,"?"),
-    (Command::DebugMenu," python3 -m debugmenu; shutdown -r now\n"),
+    (Command::DebugMenu,"python3 -m debugmenu\n"),
     (Command::Newline,"\n"),
-    (Command::Shutdown,"shutdown -r now\n"),
+    (Command::Reboot,"shutdown -r now\n"),
     (Command::GetSerial,"echo 'y1q' | python3 -m debugmenu\n"),
 ]));
 
-const RESPONSES:[(&str,Response);13] = [
+const RESPONSES:[(&str,Response);14] = [
+    ("uboot=>",Response::UBoot),
     ("Last login:",Response::PreShellPrompt),
     ("reboot: Restarting",Response::Rebooting),
     ("command not found",Response::FailedDebugMenu),
     ("login:",Response::LoginPrompt),
     ("Password:",Response::PasswordPrompt),
     ("DtCtrlCfgDeviceSerialNum",Response::Serial(None)),
+    (">",Response::DebugMenu),
+    ("Loading App-Framework",Response::DebugInit),
     ("root@",Response::ShellPrompt),
     ("EXIT Debug menu",Response::ShuttingDown),
     ("Check NIBP In Progress: True",Response::BPOn),
     ("Check NIBP In Progress: False",Response::BPOff),
     ("SureTemp Probe Pulls:",Response::TempCount(None)),
-    (">",Response::DebugMenu),
-    ("Loading App-Framework",Response::DebugInit),
 ];
 
 pub struct TTY{

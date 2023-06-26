@@ -16,7 +16,8 @@ pub enum State{
     LoginPrompt,
     DebugMenu,
     LifecycleMenu,
-    BrightnessMenu
+    BrightnessMenu,
+    ShellPrompt
 }
 
 #[derive(Debug)]
@@ -113,6 +114,10 @@ impl Device{
                         _ = usb_port.read_from_device(None);
                         initial_state = State::LoginPrompt;
                     },
+                    Response::UBoot=>{
+                        log::error!("A device was interrupted during the boot process! Please ensure all devices are completely booted and on the main screen, then restart this program.");
+                        return Err("Failed TTY init. Device in u-boot state, must be manually rebooted.".to_string());
+                    },
                         //Response::Empty parsing here is potentially in bad faith
                     Response::Other | Response::Empty | Response::ShellPrompt | Response::FailedDebugMenu | Response::DebugInit |
                     Response::LoginPrompt | Response::ShuttingDown | Response::Rebooting | Response::PreShellPrompt => 
@@ -126,9 +131,7 @@ impl Device{
                                 initial_state = State::LoginPrompt;
                             },
                             Response::ShellPrompt => {
-                                usb_port.write_to_device(Command::Shutdown);
-                                while usb_port.read_from_device(None) != Response::LoginPrompt {}
-                                initial_state = State::LoginPrompt;
+                                initial_state = State::ShellPrompt;
                             },
                             _ => {
                                 log::error!("Unknown state for TTY {:?}!!! Consult logs immediately.",usb_port);
@@ -199,13 +202,15 @@ impl Device{
                             Response::ShellPrompt => break,
                             _ => {
                                 log::error!("Unexpected response from device {}!",self.serial);
-                                log::debug!("brightness menu, catch-all, first loop, {}, {:?}",self.serial,self.usb_tty);
+                                log::debug!("brightness menu, catch-all, login loop, {}, {:?}",self.serial,self.usb_tty);
                                 log::error!("Unsure how to continue. Expect data from device {} to be erratic until next cycle.",self.serial);
                                 //break;
                             },
                         };
                     };
-                    //_ = self.usb_tty.read_from_device(None);
+                    self.current_state = State::ShellPrompt;
+                },
+                State::ShellPrompt => {
                     self.usb_tty.write_to_device(Command::DebugMenu);
                     loop {
                         match self.usb_tty.read_from_device(None)   {
@@ -219,14 +224,11 @@ impl Device{
                             Response::DebugMenu =>
                                 break,
                             Response::FailedDebugMenu => {
-                                while self.usb_tty.read_from_device(None) != Response::LoginPrompt {};
-                                self.usb_tty.write_to_device(Command::Login);
-                                while self.usb_tty.read_from_device(None) != Response::ShellPrompt {};
                                 self.usb_tty.write_to_device(Command::DebugMenu);
                             },
                             _ => { 
                                 log::error!("Unexpected response from device {}!", self.serial);
-                                log::debug!("brightness menu, catch-all, second loop, {}, {:?}",self.serial,self.usb_tty);
+                                log::debug!("brightness menu, catch-all, shell prompt loop, {}, {:?}",self.serial,self.usb_tty);
                                 log::error!("Unsure how to continue. Expect data from device {} to be erratic until next cycle.",self.serial);
                                 //break;
                             },
@@ -276,6 +278,9 @@ impl Device{
                             },
                         };
                     };
+                    self.current_state = State::ShellPrompt;
+                },
+                State::ShellPrompt => {
                     self.usb_tty.write_to_device(Command::DebugMenu);
                     loop {
                         let read_in = self.usb_tty.read_from_device(None);
@@ -283,16 +288,11 @@ impl Device{
                             Response::PreShellPrompt | Response::Empty | Response::ShuttingDown | 
                             Response::DebugInit | Response::EmptyNewline | Response::Rebooting => {},
                             Response::LoginPrompt => {
-                                self.usb_tty.write_to_device(Command::Login);
-                                while self.usb_tty.read_from_device(None) != Response::ShellPrompt {};
                                 self.usb_tty.write_to_device(Command::DebugMenu);
                             },
                             Response::DebugMenu =>
                                 break,
                             Response::FailedDebugMenu => {
-                                while self.usb_tty.read_from_device(None) != Response::LoginPrompt {};
-                                self.usb_tty.write_to_device(Command::Login);
-                                while self.usb_tty.read_from_device(None) != Response::ShellPrompt {};
                                 self.usb_tty.write_to_device(Command::DebugMenu);
                             },
                             _ => { 
@@ -381,7 +381,6 @@ impl Device{
         self.usb_tty.write_to_device(Command::DebugMenu);
         while self.usb_tty.read_from_device(None) != Response::DebugMenu {}
         self.current_state = State::DebugMenu;
-        self.reboot();
         self.load_values();
         self.save_values();
         return true
@@ -529,6 +528,7 @@ impl Device{
     }
     pub fn reboot(&mut self) -> () {
         self.usb_tty.write_to_device(Command::Quit);
+        self.usb_tty.write_to_device(Command::Reboot);
         let mut successful_reboot:bool = false;
         //let mut exited_menu:bool = false;
         loop{
