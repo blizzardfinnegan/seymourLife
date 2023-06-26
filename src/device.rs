@@ -353,38 +353,56 @@ impl Device{
         return true
     }
     pub fn auto_set_serial(&mut self) -> bool{
-        self.reboot();
-        self.usb_tty.write_to_device(Command::Login);
-        while self.usb_tty.read_from_device(None) != Response::ShellPrompt {}
-        self.usb_tty.write_to_device(Command::GetSerial);
-        loop{
-            let return_value = self.usb_tty.read_from_device(None);
-            match return_value{
-                Response::Serial(Some(contains_serial)) =>{
-                    for line in contains_serial.split("\n").collect::<Vec<&str>>(){
-                        if !line.contains(':') { continue; }
-                        let (section,value) = line.split_once(':').unwrap();
-                        if section.contains(SERIAL_HEADER){
-                            self.serial = value.trim().replace("\"","");
+        loop {
+            match self.current_state {
+                State::LoginPrompt => {
+                    self.usb_tty.write_to_device(Command::Login);
+                    while self.usb_tty.read_from_device(None) != Response::ShellPrompt {};
+                    self.current_state = State::ShellPrompt;
+                },
+                State::Shutdown => {
+                    while self.usb_tty.read_from_device(None) != Response::LoginPrompt{};
+                    self.current_state = State::LoginPrompt;
+                },
+                State::DebugMenu | State::LifecycleMenu | State::BrightnessMenu => {
+                    self.usb_tty.write_to_device(Command::Quit);
+                    _ = self.usb_tty.read_from_device(None);
+                    self.current_state = State::ShellPrompt;
+                },
+                State::ShellPrompt => {
+                    self.usb_tty.write_to_device(Command::GetSerial);
+                    loop{
+                        let return_value = self.usb_tty.read_from_device(None);
+                        match return_value{
+                            Response::Serial(Some(contains_serial)) =>{
+                                for line in contains_serial.split("\n").collect::<Vec<&str>>(){
+                                    if !line.contains(':') { continue; }
+                                    let (section,value) = line.split_once(':').unwrap();
+                                    if section.contains(SERIAL_HEADER){
+                                        self.serial = value.trim().replace("\"","");
+                                    }
+                                }
+                                log::info!("Serial found for device {}",self.serial);
+                                break;
+                            },
+                            Response::DebugInit | Response::Empty | Response::EmptyNewline => { continue; }
+                            _ => {
+                                log::error!("Bad value: {:?}",return_value);
+                                return false
+                            },
                         }
                     }
-                    log::info!("Serial found for device {}",self.serial);
-                    break;
-                },
-                Response::DebugInit | Response::Empty | Response::EmptyNewline => { continue; }
-                _ => {
-                    log::error!("Bad value: {:?}",return_value);
-                    return false
+                    self.usb_tty.write_to_device(Command::DebugMenu);
+                    while self.usb_tty.read_from_device(None) != Response::DebugMenu {}
+                    self.current_state = State::DebugMenu;
+                    self.load_values();
+                    self.save_values();
+                    return true
                 },
             }
         }
-        self.usb_tty.write_to_device(Command::DebugMenu);
-        while self.usb_tty.read_from_device(None) != Response::DebugMenu {}
-        self.current_state = State::DebugMenu;
-        self.load_values();
-        self.save_values();
-        return true
     }    
+
     pub fn manual_set_serial(&mut self, serial:&str) -> &mut Self{
         self.serial = serial.to_string();
         self.load_values();
