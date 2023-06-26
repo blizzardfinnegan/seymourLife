@@ -133,14 +133,32 @@ impl Device{
                             Response::ShellPrompt => {
                                 initial_state = State::ShellPrompt;
                             },
+                            Response::DebugMenu => {
+                                usb_port.write_to_device(Command::Newline);
+                                match usb_port.read_from_device(None) {
+                                    Response::DebugMenu | Response::ShellPrompt => {
+                                        initial_state = State::ShellPrompt;
+                                    },
+                                    _ => {
+                                        log::error!("Unknown state for TTY {:?}!!! Consult logs immediately.",usb_port);
+                                        log::debug!("Last known state: DebugMenu.");
+                                        log::debug!("Assumed but incorrect current state: successfully exited debug menu");
+                                        return Err("Failed TTY init. Unknown state, cannot trust.".to_string());
+                                    }
+                                };
+                            },
                             _ => {
                                 log::error!("Unknown state for TTY {:?}!!! Consult logs immediately.",usb_port);
+                                log::debug!("Last known state: DebugMenu.");
+                                log::debug!("Assumed but incorrect current state: attempted to exit debug menu");
                                 return Err("Failed TTY init. Unknown state, cannot trust.".to_string());
                             }
                         };
                     },
+                        //Serial response shouldn't exist, emptynewline is already filtered in main
                         Response::Serial(_) | Response::EmptyNewline => {
                             log::error!("Unknown state for TTY {:?}!!! Consult logs immediately.",usb_port);
+                            log::debug!("How did I get here???");
                             return Err("Failed TTY init. Unknown state, cannot trust.".to_string());
                     },
                 };
