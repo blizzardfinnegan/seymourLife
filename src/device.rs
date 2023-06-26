@@ -199,7 +199,7 @@ impl Device{
                             Response::PreShellPrompt | Response::Empty | Response::ShuttingDown | 
                             Response::DebugInit | Response::EmptyNewline | Response::Rebooting => {},
                             Response::PasswordPrompt => {self.usb_tty.write_to_device(Command::Newline);},
-                            Response::ShellPrompt => break,
+                            Response::FailedDebugMenu | Response::ShellPrompt => break,
                             _ => {
                                 log::error!("Unexpected response from device {}!",self.serial);
                                 log::debug!("brightness menu, catch-all, login loop, {}, {:?}",self.serial,self.usb_tty);
@@ -269,7 +269,7 @@ impl Device{
                             Response::PreShellPrompt | Response::Empty | Response::ShuttingDown | 
                             Response::DebugInit | Response::EmptyNewline | Response::Rebooting => {},
                             Response::PasswordPrompt => {self.usb_tty.write_to_device(Command::Newline);},
-                            Response::ShellPrompt => break,
+                            Response::FailedDebugMenu | Response::ShellPrompt => break,
                             _ => {
                                 log::error!("Unexpected response from device {}!",self.serial);
                                 log::debug!("lifecycle menu, catch-all, first loop, {}, {:?}",self.serial,self.usb_tty);
