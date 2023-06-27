@@ -28,6 +28,7 @@ pub enum Command{
     Newline,
     Reboot,
     GetSerial,
+    Boot,
 }
 
 #[derive(Clone,Eq,Derivative,Debug)]
@@ -68,6 +69,7 @@ const COMMAND_MAP:Lazy<HashMap<Command,&str>> = Lazy::new(||HashMap::from([
     (Command::DebugMenu,"python3 -m debugmenu\n"),
     (Command::Newline,"\n"),
     (Command::Reboot,"shutdown -r now\n"),
+    (Command::Boot,"boot\n"),
     (Command::GetSerial,"echo 'y1q' | python3 -m debugmenu\n"),
 ]));
 

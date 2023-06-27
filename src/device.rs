@@ -115,8 +115,9 @@ impl Device{
                         initial_state = State::LoginPrompt;
                     },
                     Response::UBoot=>{
-                        log::error!("A device was interrupted during the boot process! Please ensure all devices are completely booted and on the main screen, then restart this program.");
-                        return Err("Failed TTY init. Device in u-boot state, must be manually rebooted.".to_string());
+                        usb_port.write_to_device(Command::Boot);
+                        while usb_port.read_from_device(None) != Response::LoginPrompt {}
+                        initial_state = State::LoginPrompt;
                     },
                         //Response::Empty parsing here is potentially in bad faith
                     Response::Other | Response::Empty | Response::ShellPrompt | Response::FailedDebugMenu | Response::DebugInit |
