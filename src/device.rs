@@ -16,7 +16,8 @@ pub enum State{
     LoginPrompt,
     DebugMenu,
     LifecycleMenu,
-    BrightnessMenu
+    BrightnessMenu,
+    ShellPrompt
 }
 
 #[derive(Debug)]
@@ -113,6 +114,11 @@ impl Device{
                         _ = usb_port.read_from_device(None);
                         initial_state = State::LoginPrompt;
                     },
+                    Response::UBoot=>{
+                        usb_port.write_to_device(Command::Boot);
+                        while usb_port.read_from_device(None) != Response::LoginPrompt {}
+                        initial_state = State::LoginPrompt;
+                    },
                         //Response::Empty parsing here is potentially in bad faith
                     Response::Other | Response::Empty | Response::ShellPrompt | Response::FailedDebugMenu | Response::DebugInit |
                     Response::LoginPrompt | Response::ShuttingDown | Response::Rebooting | Response::PreShellPrompt => 
@@ -126,18 +132,34 @@ impl Device{
                                 initial_state = State::LoginPrompt;
                             },
                             Response::ShellPrompt => {
-                                usb_port.write_to_device(Command::Shutdown);
-                                while usb_port.read_from_device(None) != Response::LoginPrompt {}
-                                initial_state = State::LoginPrompt;
+                                initial_state = State::ShellPrompt;
+                            },
+                            Response::DebugMenu => {
+                                usb_port.write_to_device(Command::Newline);
+                                match usb_port.read_from_device(None) {
+                                    Response::DebugMenu | Response::ShellPrompt => {
+                                        initial_state = State::ShellPrompt;
+                                    },
+                                    _ => {
+                                        log::error!("Unknown state for TTY {:?}!!! Consult logs immediately.",usb_port);
+                                        log::debug!("Last known state: DebugMenu.");
+                                        log::debug!("Assumed but incorrect current state: successfully exited debug menu");
+                                        return Err("Failed TTY init. Unknown state, cannot trust.".to_string());
+                                    }
+                                };
                             },
                             _ => {
                                 log::error!("Unknown state for TTY {:?}!!! Consult logs immediately.",usb_port);
+                                log::debug!("Last known state: DebugMenu.");
+                                log::debug!("Assumed but incorrect current state: attempted to exit debug menu");
                                 return Err("Failed TTY init. Unknown state, cannot trust.".to_string());
                             }
                         };
                     },
+                        //Serial response shouldn't exist, emptynewline is already filtered in main
                         Response::Serial(_) | Response::EmptyNewline => {
                             log::error!("Unknown state for TTY {:?}!!! Consult logs immediately.",usb_port);
+                            log::debug!("How did I get here???");
                             return Err("Failed TTY init. Unknown state, cannot trust.".to_string());
                     },
                 };
@@ -196,16 +218,18 @@ impl Device{
                             Response::PreShellPrompt | Response::Empty | Response::ShuttingDown | 
                             Response::DebugInit | Response::EmptyNewline | Response::Rebooting => {},
                             Response::PasswordPrompt => {self.usb_tty.write_to_device(Command::Newline);},
-                            Response::ShellPrompt => break,
+                            Response::FailedDebugMenu | Response::ShellPrompt => break,
                             _ => {
                                 log::error!("Unexpected response from device {}!",self.serial);
-                                log::debug!("brightness menu, catch-all, first loop, {}, {:?}",self.serial,self.usb_tty);
+                                log::debug!("brightness menu, catch-all, login loop, {}, {:?}",self.serial,self.usb_tty);
                                 log::error!("Unsure how to continue. Expect data from device {} to be erratic until next cycle.",self.serial);
                                 //break;
                             },
                         };
                     };
-                    //_ = self.usb_tty.read_from_device(None);
+                    self.current_state = State::ShellPrompt;
+                },
+                State::ShellPrompt => {
                     self.usb_tty.write_to_device(Command::DebugMenu);
                     loop {
                         match self.usb_tty.read_from_device(None)   {
@@ -219,14 +243,11 @@ impl Device{
                             Response::DebugMenu =>
                                 break,
                             Response::FailedDebugMenu => {
-                                while self.usb_tty.read_from_device(None) != Response::LoginPrompt {};
-                                self.usb_tty.write_to_device(Command::Login);
-                                while self.usb_tty.read_from_device(None) != Response::ShellPrompt {};
                                 self.usb_tty.write_to_device(Command::DebugMenu);
                             },
                             _ => { 
                                 log::error!("Unexpected response from device {}!", self.serial);
-                                log::debug!("brightness menu, catch-all, second loop, {}, {:?}",self.serial,self.usb_tty);
+                                log::debug!("brightness menu, catch-all, shell prompt loop, {}, {:?}",self.serial,self.usb_tty);
                                 log::error!("Unsure how to continue. Expect data from device {} to be erratic until next cycle.",self.serial);
                                 //break;
                             },
@@ -267,7 +288,7 @@ impl Device{
                             Response::PreShellPrompt | Response::Empty | Response::ShuttingDown | 
                             Response::DebugInit | Response::EmptyNewline | Response::Rebooting => {},
                             Response::PasswordPrompt => {self.usb_tty.write_to_device(Command::Newline);},
-                            Response::ShellPrompt => break,
+                            Response::FailedDebugMenu | Response::ShellPrompt => break,
                             _ => {
                                 log::error!("Unexpected response from device {}!",self.serial);
                                 log::debug!("lifecycle menu, catch-all, first loop, {}, {:?}",self.serial,self.usb_tty);
@@ -276,6 +297,9 @@ impl Device{
                             },
                         };
                     };
+                    self.current_state = State::ShellPrompt;
+                },
+                State::ShellPrompt => {
                     self.usb_tty.write_to_device(Command::DebugMenu);
                     loop {
                         let read_in = self.usb_tty.read_from_device(None);
@@ -283,16 +307,11 @@ impl Device{
                             Response::PreShellPrompt | Response::Empty | Response::ShuttingDown | 
                             Response::DebugInit | Response::EmptyNewline | Response::Rebooting => {},
                             Response::LoginPrompt => {
-                                self.usb_tty.write_to_device(Command::Login);
-                                while self.usb_tty.read_from_device(None) != Response::ShellPrompt {};
                                 self.usb_tty.write_to_device(Command::DebugMenu);
                             },
                             Response::DebugMenu =>
                                 break,
                             Response::FailedDebugMenu => {
-                                while self.usb_tty.read_from_device(None) != Response::LoginPrompt {};
-                                self.usb_tty.write_to_device(Command::Login);
-                                while self.usb_tty.read_from_device(None) != Response::ShellPrompt {};
                                 self.usb_tty.write_to_device(Command::DebugMenu);
                             },
                             _ => { 
@@ -353,39 +372,56 @@ impl Device{
         return true
     }
     pub fn auto_set_serial(&mut self) -> bool{
-        self.reboot();
-        self.usb_tty.write_to_device(Command::Login);
-        while self.usb_tty.read_from_device(None) != Response::ShellPrompt {}
-        self.usb_tty.write_to_device(Command::GetSerial);
-        loop{
-            let return_value = self.usb_tty.read_from_device(None);
-            match return_value{
-                Response::Serial(Some(contains_serial)) =>{
-                    for line in contains_serial.split("\n").collect::<Vec<&str>>(){
-                        if !line.contains(':') { continue; }
-                        let (section,value) = line.split_once(':').unwrap();
-                        if section.contains(SERIAL_HEADER){
-                            self.serial = value.trim().replace("\"","");
+        loop {
+            match self.current_state {
+                State::LoginPrompt => {
+                    self.usb_tty.write_to_device(Command::Login);
+                    while self.usb_tty.read_from_device(None) != Response::ShellPrompt {};
+                    self.current_state = State::ShellPrompt;
+                },
+                State::Shutdown => {
+                    while self.usb_tty.read_from_device(None) != Response::LoginPrompt{};
+                    self.current_state = State::LoginPrompt;
+                },
+                State::DebugMenu | State::LifecycleMenu | State::BrightnessMenu => {
+                    self.usb_tty.write_to_device(Command::Quit);
+                    _ = self.usb_tty.read_from_device(None);
+                    self.current_state = State::ShellPrompt;
+                },
+                State::ShellPrompt => {
+                    self.usb_tty.write_to_device(Command::GetSerial);
+                    loop{
+                        let return_value = self.usb_tty.read_from_device(None);
+                        match return_value{
+                            Response::Serial(Some(contains_serial)) =>{
+                                for line in contains_serial.split("\n").collect::<Vec<&str>>(){
+                                    if !line.contains(':') { continue; }
+                                    let (section,value) = line.split_once(':').unwrap();
+                                    if section.contains(SERIAL_HEADER){
+                                        self.serial = value.trim().replace("\"","");
+                                    }
+                                }
+                                log::info!("Serial found for device {}",self.serial);
+                                break;
+                            },
+                            Response::DebugInit | Response::Empty | Response::EmptyNewline => { continue; }
+                            _ => {
+                                log::error!("Bad value: {:?}",return_value);
+                                return false
+                            },
                         }
                     }
-                    log::info!("Serial found for device {}",self.serial);
-                    break;
-                },
-                Response::DebugInit | Response::Empty | Response::EmptyNewline => { continue; }
-                _ => {
-                    log::error!("Bad value: {:?}",return_value);
-                    return false
+                    self.usb_tty.write_to_device(Command::DebugMenu);
+                    while self.usb_tty.read_from_device(None) != Response::DebugMenu {}
+                    self.current_state = State::DebugMenu;
+                    self.load_values();
+                    self.save_values();
+                    return true
                 },
             }
         }
-        self.usb_tty.write_to_device(Command::DebugMenu);
-        while self.usb_tty.read_from_device(None) != Response::DebugMenu {}
-        self.current_state = State::DebugMenu;
-        self.reboot();
-        self.load_values();
-        self.save_values();
-        return true
     }    
+
     pub fn manual_set_serial(&mut self, serial:&str) -> &mut Self{
         self.serial = serial.to_string();
         self.load_values();
@@ -529,6 +565,7 @@ impl Device{
     }
     pub fn reboot(&mut self) -> () {
         self.usb_tty.write_to_device(Command::Quit);
+        self.usb_tty.write_to_device(Command::Reboot);
         let mut successful_reboot:bool = false;
         //let mut exited_menu:bool = false;
         loop{

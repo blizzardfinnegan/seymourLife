@@ -26,8 +26,9 @@ pub enum Command{
     Login,
     DebugMenu,
     Newline,
-    Shutdown,
+    Reboot,
     GetSerial,
+    Boot,
 }
 
 #[derive(Clone,Eq,Derivative,Debug)]
@@ -49,6 +50,7 @@ pub enum Response{
     EmptyNewline,
     DebugInit,
     Serial(Option<String>),
+    UBoot,
 }
 
 
@@ -64,26 +66,34 @@ const COMMAND_MAP:Lazy<HashMap<Command,&str>> = Lazy::new(||HashMap::from([
     (Command::UpMenuLevel, "\\"),
     (Command::Login,"root\n"),
     (Command::RedrawMenu,"?"),
-    (Command::DebugMenu," python3 -m debugmenu; shutdown -r now\n"),
+    (Command::DebugMenu,"python3 -m debugmenu\n"),
     (Command::Newline,"\n"),
-    (Command::Shutdown,"shutdown -r now\n"),
+    (Command::Reboot,"shutdown -r now\n"),
+    (Command::Boot,"boot\n"),
     (Command::GetSerial,"echo 'y1q' | python3 -m debugmenu\n"),
 ]));
 
-const RESPONSES:[(&str,Response);13] = [
+const COMMAND_RESPONSES: [&str;3] = [
+    "python3 -m debugmenu",
+    "q",
+    "root",
+];
+
+const RESPONSES:[(&str,Response);14] = [
+    ("uboot=>",Response::UBoot),
     ("Last login:",Response::PreShellPrompt),
     ("reboot: Restarting",Response::Rebooting),
     ("command not found",Response::FailedDebugMenu),
     ("login:",Response::LoginPrompt),
     ("Password:",Response::PasswordPrompt),
     ("DtCtrlCfgDeviceSerialNum",Response::Serial(None)),
-    ("root@",Response::ShellPrompt),
-    ("EXIT Debug menu",Response::ShuttingDown),
     ("Check NIBP In Progress: True",Response::BPOn),
     ("Check NIBP In Progress: False",Response::BPOff),
     ("SureTemp Probe Pulls:",Response::TempCount(None)),
     (">",Response::DebugMenu),
     ("Loading App-Framework",Response::DebugInit),
+    ("root@",Response::ShellPrompt),
+    ("EXIT Debug menu",Response::ShuttingDown),
 ];
 
 pub struct TTY{
@@ -141,7 +151,12 @@ impl TTY{
             let read_line:String = String::from_utf8_lossy(read_buffer.as_slice()).to_string();
             if read_line.eq("\r\n") {
                 return Response::EmptyNewline;
-            }
+            } 
+            for command in COMMAND_RESPONSES{
+                if read_line.trim().eq(command.trim()){
+                    return self.read_from_device(None);
+                }
+            };
             for (string,enum_value) in RESPONSES{
                 if read_line.contains(string){
                     if(enum_value == Response::BPOn) || (enum_value == Response::BPOff) {
