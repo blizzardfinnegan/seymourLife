@@ -58,7 +58,7 @@ fn input_filtering(prompt:Option<&str>) -> String{
     log::debug!("{}:{}",internal_prompt,user_input);
     return user_input;
 }
-
+//Path::new(&&str).is_dir() -> bool
 fn main(){
     let args = Args::parse();
     setup_logs(&args.debug);
@@ -80,106 +80,130 @@ fn main(){
 
         log::info!("Testing all available USB ports for connected devices. This may take several minutes, and devices may reboot several times.");
         let gpio = &mut GpioPins::new();
-        match std::fs::read_dir("/dev/serial/by-path"){
-            Ok(available_ttys)=>{
-                let mut possible_devices:Vec<Option<Device>> = Vec::new();
-                let mut tty_test_threads:Vec<JoinHandle<Option<Device>>> = Vec::new();
-                for possible_tty in available_ttys.into_iter(){
-                    tty_test_threads.push(
-                        thread::spawn(move ||{
-                            let tty_ref = possible_tty.as_ref();
-                            match tty_ref{
-                                Ok(tty_real_ref)=>{
-                                    let tty_path =  tty_real_ref.path();
-                                    let tty_name = tty_path.to_string_lossy();
-                                    log::debug!("Testing port {}",&tty_name);
-                                    let possible_port = TTY::new(&tty_name);
-                                    match possible_port{
-                                        Some(mut port) =>{
-                                            port.write_to_device(tty::Command::Newline);
-                                            let response = port.read_from_device(Some(":"));
-                                            if response != Response::Empty{
-                                                log::debug!("{} is valid port!",tty_name);
-                                                let new_device = Device::new(port,Some(response));
-                                                match new_device{
-                                                    Ok(mut device) => {
-                                                        device.darken_screen();
-                                                        if !args.manual {
-                                                            device.auto_set_serial();
-                                                        }
-                                                        Some(device)
-                                                    },
-                                                    Err(_) => None
-                                                }
-                                            }
-                                            else { None }
-                                        },
-                                        None=>{None}
-                                    }
-                                },
-                                Err(error)=>{
-                                    log::debug!("{}",error);
-                                    None
+        let mut available_ttys:Vec<Box<Path>> = Vec::new();
+        for entry in glob::glob("/dev/serial/*").expect("Failed to read glob pattern"){
+            match entry{
+                Ok(real_path) =>{
+                    match fs::read_dir::<&Path>(real_path.as_ref()){
+                        Ok(possible_ttys) =>{
+                            possible_ttys.into_iter().for_each(|tty| {
+                                if let Ok(single_tty) = tty {
+                                    available_ttys.push(single_tty.path().into());
+                                }
+                            });
+                            break;
+                        }
+                        Err(error) =>{
+                            log::error!("Invalid permissions to /dev directory... did you run with sudo?");
+                            log::error!("{}",error);
+                            return;
+                        }
+                    }
+                }
+                Err(error) =>{
+                    log::error!("{}",error);
+                }
+            }
+        }
+        if available_ttys.is_empty(){
+            for entry in glob::glob("/dev/ttyUSB*").expect("Unable to read glob"){
+                match entry{
+                    Ok(possible_tty) => available_ttys.push(Path::new(&possible_tty).into()),
+                    Err(error) => {
+                        log::error!("Invalid permissions to /dev directory... did you run with sudo?");
+                        log::error!("{}",error);
+                        return;
+                    }
+                };
+            }
+        }
+
+        if available_ttys.is_empty(){
+            log::error!("No serial devices detected! Please ensure all connections.");
+            return;
+        }
+        let mut possible_devices:Vec<Option<Device>> = Vec::new();
+        let mut tty_test_threads:Vec<JoinHandle<Option<Device>>> = Vec::new();
+        for possible_tty in available_ttys.into_iter(){
+            tty_test_threads.push(
+                thread::spawn(move ||{
+                    let tty_name = possible_tty.to_string_lossy();
+                    log::debug!("Testing port {}",&tty_name);
+                    let possible_port = TTY::new(&tty_name);
+                    match possible_port{
+                        Some(mut port) =>{
+                            port.write_to_device(tty::Command::Newline);
+                            let response = port.read_from_device(Some(":"));
+                            if response != Response::Empty{
+                                log::debug!("{} is valid port!",tty_name);
+                                let new_device = Device::new(port,Some(response));
+                                match new_device{
+                                    Ok(mut device) => {
+                                        device.darken_screen();
+                                        if !args.manual {
+                                            device.auto_set_serial();
+                                        }
+                                        Some(device)
+                                    },
+                                    Err(_) => None
                                 }
                             }
-                    }));
-                }
-                for thread in tty_test_threads{
-                    let output = thread.join().unwrap_or_else(|x|{log::trace!("{:?}",x); None});
-                    possible_devices.push(output);
-                }
-
-                let mut serials_set:bool = true;
-                let mut devices:Vec<Device> = Vec::new();
-                for possible_device in possible_devices.into_iter(){
-                    if let Some(device) = possible_device{
-                        if device.get_serial().eq("uninitialised"){
-                            serials_set = false;
-                        }
-                        devices.push(device);
+                            else { None }
+                        },
+                        None=>{None}
                     }
-                }
+            }));
+        }
+        for thread in tty_test_threads{
+            let output = thread.join().unwrap_or_else(|x|{log::trace!("{:?}",x); None});
+            possible_devices.push(output);
+        }
 
-                log::info!("--------------------------------------");
-                log::info!("Number of devices detected: {}",devices.len());
-                log::info!("--------------------------------------\n\n");
-
-                log::info!("Setting up probe wells for all devices. This may take several minutes...");
-                for device in devices.iter_mut(){
-                    if !serials_set || args.manual {
-                    device.brighten_screen();
-                    device.manual_set_serial(&input_filtering(Some("Enter the serial of the device with the bright screen: ")).to_string());
-                    device.darken_screen();
-                    }
-                    log::info!("Checking probe well of device {}",device.get_serial());
-                    log::debug!("Number of unassigned addresses: {}",gpio.get_unassigned_addresses().len());
-                    if !find_gpio(device, gpio){
-                        device.set_pin_address(21);
-                        log::error!("Unable to find probe-well for device {}. Please ensure that the probe well is installed properly, and the calibration key is plugged in.",device.get_serial());
-                        device.brighten_screen();
-                        panic!();
-                    }
+        let mut serials_set:bool = true;
+        let mut devices:Vec<Device> = Vec::new();
+        for possible_device in possible_devices.into_iter(){
+            if let Some(device) = possible_device{
+                if device.get_serial().eq("uninitialised"){
+                    serials_set = false;
                 }
-
-                let mut iteration_threads = Vec::new();
-                while let Some(mut device) = devices.pop(){
-                    iteration_threads.push(thread::spawn(move||{
-                        device.init_temp_count();
-                        for i in 1..=iteration_count{
-                            log::info!("Starting iteration {} of {} for device {}...",
-                                           i,iteration_count,device.get_serial());
-                            device.test_cycle(None);
-                        }
-                    }));
-                }
-                for thread in iteration_threads{
-                    thread.join().unwrap();
-                }
+                devices.push(device);
             }
-            Err(_)=>{
-                log::error!("Invalid serial location! Please make sure that /dev/serial/by-path exists.");
-                break;
+        }
+
+        log::info!("--------------------------------------");
+        log::info!("Number of devices detected: {}",devices.len());
+        log::info!("--------------------------------------\n\n");
+
+        log::info!("Setting up probe wells for all devices. This may take several minutes...");
+        for device in devices.iter_mut(){
+            if !serials_set || args.manual {
+            device.brighten_screen();
+            device.manual_set_serial(&input_filtering(Some("Enter the serial of the device with the bright screen: ")).to_string());
+            device.darken_screen();
             }
+            log::info!("Checking probe well of device {}",device.get_serial());
+            log::debug!("Number of unassigned addresses: {}",gpio.get_unassigned_addresses().len());
+            if !find_gpio(device, gpio){
+                device.set_pin_address(21);
+                log::error!("Unable to find probe-well for device {}. Please ensure that the probe well is installed properly, and the calibration key is plugged in.",device.get_serial());
+                device.brighten_screen();
+                panic!();
+            }
+        }
+
+        let mut iteration_threads = Vec::new();
+        while let Some(mut device) = devices.pop(){
+            iteration_threads.push(thread::spawn(move||{
+                device.init_temp_count();
+                for i in 1..=iteration_count{
+                    log::info!("Starting iteration {} of {} for device {}...",
+                                   i,iteration_count,device.get_serial());
+                    device.test_cycle(None);
+                }
+            }));
+        }
+        for thread in iteration_threads{
+            thread.join().unwrap();
         }
         if input_filtering(Some("Would you like to run the tests again? (y/N): ")).to_string().contains("y") {}
         else { break; }
