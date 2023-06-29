@@ -25,7 +25,7 @@ struct Args{
 
 }
 
-const VERSION:&str="2.3.2";
+const VERSION:&str="2.3.3";
 const DEBUG_ITERATION_COUNT:u64=50000;
 
 fn int_input_filtering(prompt:Option<&str>) -> u64{

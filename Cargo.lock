@@ -618,7 +618,7 @@ dependencies = [
 
 [[package]]
 name = "seymour_life"
-version = "2.3.2"
+version = "2.3.3"
 dependencies = [
  "chrono",
  "clap",

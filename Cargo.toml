@@ -3,7 +3,7 @@
 
 [package]
 name = "seymour_life"
-version = "2.3.2"
+version = "2.3.3"
 edition = "2021"
 #This feature is currently limited to nightly versions of cargo.
 #forced-target="aarch64-unknown-linux-musl"
