@@ -122,12 +122,11 @@ impl std::fmt::Debug for TTY{
 
 impl TTY{
     pub fn new(serial_location:&str) -> Option<Self>{
-        let possible_tty = serialport::new(serial_location,BAUD_RATE).timeout(SERIAL_TIMEOUT).open();
-        if let Ok(tty) = possible_tty{
-            Some(TTY{tty,last:Command::Quit})
+        if let Ok(tty) = serialport::new(serial_location,BAUD_RATE).timeout(SERIAL_TIMEOUT).open(){
+            return Some(TTY{tty,last:Command::Quit})
         } else{
-            None
-        }
+            return None
+        };
     }
 
     pub fn write_to_device(&mut self,command:Command) -> bool {
@@ -148,27 +147,26 @@ impl TTY{
         let mut read_buffer: Vec<u8> = Vec::new();
         _ = reader.read_to_end(&mut read_buffer);
         if read_buffer.len() > 0 {
-            let read_line:String = String::from_utf8_lossy(read_buffer.as_slice()).to_string();
-            if read_line.eq("\r\n") {
+            let device_response:String = String::from_utf8_lossy(read_buffer.as_slice()).to_string();
+            if device_response.eq("\r\n") {
                 return Response::EmptyNewline;
             } 
             for command in COMMAND_RESPONSES{
-                if read_line.trim().eq(command.trim()){
+                if device_response.trim().eq(command.trim()){
                     return self.read_from_device(None);
                 }
             };
             for (string,enum_value) in RESPONSES{
-                if read_line.contains(string){
+                if device_response.contains(string){
                     if(enum_value == Response::BPOn) || (enum_value == Response::BPOff) {
                         //Don't log BPOn or BPOff, we're gonna see a LOT of those and we don't want
                         //to overfill the SD card
                     }
                     else{
-                        log::trace!("Successful read of {:?} from tty {}, which matches pattern {:?}",read_line,self.tty.name().unwrap_or("unknown shell".to_string()),enum_value);
+                        log::trace!("Successful read of {:?} from tty {}, which matches pattern {:?}",device_response,self.tty.name().unwrap_or("unknown shell".to_string()),enum_value);
                     };
                     if enum_value == Response::TempCount(None){
-                        let mut lines = read_line.lines();
-                        while let Some(single_line) = lines.next(){
+                        while let Some(single_line) = device_response.lines().next(){
                             if single_line.contains(string){
                                 let trimmed_line = single_line.trim();
                                 match trimmed_line.rsplit_once(' '){
@@ -190,7 +188,7 @@ impl TTY{
                         }
                     }
                     else if enum_value == Response::Serial(None) {
-                        return Response::Serial(Some(read_line));
+                        return Response::Serial(Some(device_response));
                     }
                     else if enum_value == Response::PasswordPrompt {
                         log::error!("Recieved password prompt on device {}! Something fell apart here. Check preceeding log lines.",self.tty.name().unwrap_or("unknown shell".to_string()));
@@ -202,7 +200,7 @@ impl TTY{
                     }
                 }
             }
-            log::trace!("Unable to determine response. Response string is: [{:?}]",read_line);
+            log::trace!("Unable to determine response. Response string is: [{:?}]",device_response);
             return Response::Other;
         }
         else {

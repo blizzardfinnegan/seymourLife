@@ -37,73 +37,6 @@ pub struct Device{
 }
 
 impl Device{
-    fn load_values(&mut self) -> bool {
-        if ! Path::new(&OUTPUT_FOLDER).is_dir(){
-            _ = fs::create_dir(&OUTPUT_FOLDER);
-        };
-        //log::debug!("{:?}",&self.serial);
-        let output_path:String = OUTPUT_FOLDER.to_owned() + &self.serial + ".txt";
-        if ! Path::new(&output_path).exists(){
-            log::debug!("Creating file {}",&output_path);
-            let temp:Result<File, std::io::Error> = fs::File::create(&output_path);
-            match temp{
-                Ok(file) => {
-                    self.output_file = Some(file);
-                    self.save_values();
-                }
-                Err(_) => {
-                    return false
-                }
-            }
-        }
-        else {
-            let temp:Result<String, std::io::Error> = std::fs::read_to_string(output_path);
-            match temp{
-                Ok(file_contents) =>{
-                    let file_lines:Vec<&str> = file_contents.split("\n").collect();
-                    log::trace!("{:?}",file_contents);
-                    for line in file_lines {
-                        if line.len() > 0{
-                            //log::trace!("{:?}",line);
-                            let section_and_data:Vec<&str> = line.split(SECTION_SEPARATOR).collect();
-                            let section:&str = section_and_data[0];
-                            let possible_value:Result<u64, std::num::ParseIntError> = section_and_data[1].trim().parse::<u64>();
-                            match possible_value{
-                                Ok(value) => {
-                                    //log::trace!("{:?} value: [{:?}]",section,value);
-                                    match section {
-                                        REBOOTS_SECTION => {
-                                            self.reboots = value;
-                                            //log::trace!("Reboots set to {:?}",self.reboots);
-                                        },
-                                        BP_SECTION => {
-                                            self.bps = value.clone();
-                                            //log::trace!("BPS set to {:?}",self.bps);
-                                        },
-                                        TEMP_SECTION => {
-                                            self.temp_offset = value;
-                                            //log::trace!("Temp offset set to {:?}",self.temp_offset);
-                                        },
-                                        _ => {
-                                            log::warn!("Invalid import value: [{:?}]. Please ensure that the output directory is clean.",section_and_data);
-                                        }
-                                    };
-                                }
-                                Err(_) => {
-                                    log::warn!("Unable to parse value [{:?}] into integer",section_and_data);
-                                }
-                            }
-                        };
-                    };
-                },
-                Err(error) => {
-                    log::warn!("Could not load from file!");
-                    log::debug!("{}",error);
-                }
-            }
-        };
-        return true
-    }
     pub fn new(mut usb_port:TTY,response:Option<Response>) -> Result<Self,String>{
         let initial_state:State;
         match response{
@@ -166,8 +99,7 @@ impl Device{
             },
             None => initial_state = State::LoginPrompt
         };
-        let temp = Gpio::new();
-        match temp{
+        match Gpio::new(){
             Ok(gpio) =>{
                 let mut output = Self{
                     usb_tty: usb_port,
@@ -194,6 +126,64 @@ impl Device{
                 return Err("Failed GPIO init".to_string());
             }
         }
+    }
+    fn load_values(&mut self) -> bool {
+        if ! Path::new(&OUTPUT_FOLDER).is_dir(){
+            _ = fs::create_dir(&OUTPUT_FOLDER);
+        };
+        let output_path:String = OUTPUT_FOLDER.to_owned() + &self.serial + ".txt";
+        if ! Path::new(&output_path).exists(){
+            log::debug!("Creating file {}",&output_path);
+            match fs::File::create(&output_path){
+                Ok(file) => {
+                    self.output_file = Some(file);
+                    self.save_values();
+                }
+                Err(_) => {
+                    return false
+                }
+            }
+        }
+        else {
+            match std::fs::read_to_string(output_path){
+                Ok(file_contents) =>{
+                    let file_lines:Vec<&str> = file_contents.split("\n").collect();
+                    log::trace!("{:?}",file_contents);
+                    for line in file_lines {
+                        if line.len() > 0{
+                            let section_and_data:Vec<&str> = line.split(SECTION_SEPARATOR).collect();
+                            let section:&str = section_and_data[0];
+                            match section_and_data[1].trim().parse::<u64>(){
+                                Ok(value) => {
+                                    match section {
+                                        REBOOTS_SECTION => {
+                                            self.reboots = value;
+                                        },
+                                        BP_SECTION => {
+                                            self.bps = value.clone();
+                                        },
+                                        TEMP_SECTION => {
+                                            self.temp_offset = value;
+                                        },
+                                        _ => {
+                                            log::warn!("Invalid import value: [{:?}]. Please ensure that the output directory is clean.",section_and_data);
+                                        }
+                                    };
+                                }
+                                Err(_) => {
+                                    log::warn!("Unable to parse value [{:?}] into integer",section_and_data);
+                                }
+                            }
+                        };
+                    };
+                },
+                Err(error) => {
+                    log::warn!("Could not load from file!");
+                    log::debug!("{}",error);
+                }
+            }
+        };
+        return true
     }
 
     fn go_to_brightness_menu(&mut self) -> &mut Self{
@@ -293,7 +283,6 @@ impl Device{
                                 log::error!("Unexpected response from device {}!",self.serial);
                                 log::debug!("lifecycle menu, catch-all, first loop, {}, {:?}",self.serial,self.usb_tty);
                                 log::error!("Unsure how to continue. Expect data from device {} to be erratic until next cycle.",self.serial);
-                                //break;
                             },
                         };
                     };
@@ -318,7 +307,6 @@ impl Device{
                                 log::error!("Unexpected response from device {}! {:?}", self.serial, read_in);
                                 log::debug!("lifecycle menu, catch-all, second loop, {}, {:?}",self.serial,self.usb_tty);
                                 log::error!("Unsure how to continue. Expect data from device {} to be erratic until next cycle.",self.serial);
-                                //break;
                             },
                         };
                     };
@@ -335,8 +323,7 @@ impl Device{
 
     fn save_values(&mut self) -> bool{
         let output_path = OUTPUT_FOLDER.to_owned() + &self.serial + ".txt";
-        let temp = fs::OpenOptions::new().write(true).truncate(true).open(&output_path);
-        match temp{
+        match fs::OpenOptions::new().write(true).truncate(true).open(&output_path){
             Ok(opened_file) => self.output_file = Some(opened_file),
             Err(_) => {
                 log::warn!("Could not open file [{}] to write! Potential permissions error.",&output_path);
@@ -358,8 +345,7 @@ impl Device{
             output_data.push_str(&saved_temps.to_string());
             output_data.push_str("\n");
             log::debug!("final data to write to '{:?}': [{:?}]",file_name,output_data);
-            let temp = file_name.write_all(output_data.as_bytes());
-            match temp{
+            match file_name.write_all(output_data.as_bytes()){
                 Err(error) => {
                     log::warn!("{}",error);
                 },
@@ -436,8 +422,7 @@ impl Device{
     }
     pub fn set_pin_address(&mut self, address:u8) -> &mut Self{
         self.address = Some(address.clone());
-        let temp = self.gpio.get(address);
-        match temp{
+        match self.gpio.get(address){
             Ok(pin) => self.pin = Some(pin.into_output()),
             Err(error) => {
                 log::warn!("Could not set pin to this address {}; already assigned?",address);
@@ -449,13 +434,17 @@ impl Device{
     pub fn start_temp(&mut self) -> &mut Self {
         if let Some(ref mut pin) = self.pin {
             pin.set_high();
-        }
+        } else {
+            log::warn!("Unable to start temp for device {}! Is GPIO initialised?",self.serial);
+        };
         return self;
     }
     pub fn stop_temp(&mut self) -> &mut Self {
         if let Some(ref mut pin) = self.pin {
             pin.set_low();
-        }
+        } else {
+            log::warn!("Unable to stop temp for device {}! Is GPIO initialised?",self.serial);
+        };
         return self;
     }
     fn start_bp(&mut self) -> &mut Self {
@@ -574,13 +563,9 @@ impl Device{
                 Response::Rebooting => {
                     log::trace!("Successful reboot detected for device {}.",self.serial);
                     successful_reboot = true;
-                    //This error message is turning out to be more false positive than anything
-                    //else. Reboots can sometimes dump both reboot flag and shutdown flag at once.
-                    //if !exited_menu { log::info!("Unusual reboot detected for device {}. Please check logs.",self.serial); }
                 },
                 Response::ShuttingDown => {
                     log::trace!("Exiting debug menu on device {}.",self.serial);
-                    //exited_menu = true;
                 },
                 _ => {}
             }

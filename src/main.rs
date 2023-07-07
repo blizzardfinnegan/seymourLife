@@ -28,37 +28,6 @@ struct Args{
 const VERSION:&str="2.3.3";
 const DEBUG_ITERATION_COUNT:u64=50000;
 
-fn int_input_filtering(prompt:Option<&str>) -> u64{
-    let internal_prompt = prompt.unwrap_or(">>>");
-    let mut user_input:String = String::new();
-    print!("{}",internal_prompt);
-    _ = stdout().flush();
-    stdin().read_line(&mut user_input).expect("Did not input a valid number.");
-    if let Some('\n')=user_input.chars().next_back() {
-        user_input.pop();
-    }
-    if let Some('\r')=user_input.chars().next_back() {
-        user_input.pop();
-    }
-    return user_input.parse().unwrap_or(0);
-}
-
-fn input_filtering(prompt:Option<&str>) -> String{
-    let internal_prompt = prompt.unwrap_or(">>>");
-    let mut user_input:String = String::new();
-    print!("{}",internal_prompt);
-    _ = stdout().flush();
-    stdin().read_line(&mut user_input).ok().expect("Did not enter a correct string");
-    if let Some('\n')=user_input.chars().next_back() {
-        user_input.pop();
-    }
-    if let Some('\r')=user_input.chars().next_back() {
-        user_input.pop();
-    }
-    log::debug!("{}:{}",internal_prompt,user_input);
-    return user_input;
-}
-//Path::new(&&str).is_dir() -> bool
 fn main(){
     let args = Args::parse();
     setup_logs(&args.debug);
@@ -129,8 +98,8 @@ fn main(){
                 thread::spawn(move ||{
                     let tty_name = possible_tty.to_string_lossy();
                     log::debug!("Testing port {}",&tty_name);
-                    let possible_port = TTY::new(&tty_name);
-                    match possible_port{
+                    //let possible_port = TTY::new(&tty_name);
+                    match TTY::new(&tty_name){
                         Some(mut port) =>{
                             port.write_to_device(tty::Command::Newline);
                             let response = port.read_from_device(Some(":"));
@@ -224,6 +193,37 @@ fn find_gpio(device:&mut Device,gpio:&mut GpioPins) -> bool{
         }
     }
     return false;
+}
+
+fn int_input_filtering(prompt:Option<&str>) -> u64{
+    let internal_prompt = prompt.unwrap_or(">>>");
+    let mut user_input:String = String::new();
+    print!("{}",internal_prompt);
+    _ = stdout().flush();
+    stdin().read_line(&mut user_input).expect("Did not input a valid number.");
+    if let Some('\n')=user_input.chars().next_back() {
+        user_input.pop();
+    }
+    if let Some('\r')=user_input.chars().next_back() {
+        user_input.pop();
+    }
+    return user_input.parse().unwrap_or(0);
+}
+
+fn input_filtering(prompt:Option<&str>) -> String{
+    let internal_prompt = prompt.unwrap_or(">>>");
+    let mut user_input:String = String::new();
+    print!("{}",internal_prompt);
+    _ = stdout().flush();
+    stdin().read_line(&mut user_input).ok().expect("Did not enter a correct string");
+    if let Some('\n')=user_input.chars().next_back() {
+        user_input.pop();
+    }
+    if let Some('\r')=user_input.chars().next_back() {
+        user_input.pop();
+    }
+    log::debug!("{}:{}",internal_prompt,user_input);
+    return user_input;
 }
 
 pub fn setup_logs(debug:&bool){

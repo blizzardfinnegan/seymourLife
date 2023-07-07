@@ -10,11 +10,9 @@ impl GpioPins{
     pub fn new() -> Self {
         let mut output = Self { unassigned_addresses:Vec::new() };
         for pin in RELAY_ADDRESSES.iter(){
-            let possible_gpio = Gpio::new();
-            match possible_gpio{
+            match Gpio::new(){
                 Ok(gpio_object) =>{
-                    let temp = gpio_object.get(pin.clone());
-                    match temp{
+                    match gpio_object.get(pin.clone()){
                         Ok(pin_object)=>{
                             _ = pin_object.into_output_low();
                             output.unassigned_addresses.push(*pin);
