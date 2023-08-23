@@ -213,7 +213,6 @@ impl Device{
                                 log::error!("Unexpected response from device {}!",self.serial);
                                 log::debug!("brightness menu, catch-all, login loop, {}, {:?}",self.serial,self.usb_tty);
                                 log::error!("Unsure how to continue. Expect data from device {} to be erratic until next cycle.",self.serial);
-                                //break;
                             },
                         };
                     };
@@ -239,11 +238,9 @@ impl Device{
                                 log::error!("Unexpected response from device {}!", self.serial);
                                 log::debug!("brightness menu, catch-all, shell prompt loop, {}, {:?}",self.serial,self.usb_tty);
                                 log::error!("Unsure how to continue. Expect data from device {} to be erratic until next cycle.",self.serial);
-                                //break;
                             },
                         };
                     };
-                    //_ = self.usb_tty.read_from_device(None);
                     self.current_state = State::DebugMenu;
                 },
                 State::Shutdown => {
@@ -397,6 +394,7 @@ impl Device{
                             },
                         }
                     }
+                    if self.serial == "" { self.serial = UNINITIALISED_SERIAL.to_string(); }
                     self.usb_tty.write_to_device(Command::DebugMenu);
                     while self.usb_tty.read_from_device(None) != Response::DebugMenu {}
                     self.current_state = State::DebugMenu;
@@ -556,7 +554,6 @@ impl Device{
         self.usb_tty.write_to_device(Command::Quit);
         self.usb_tty.write_to_device(Command::Reboot);
         let mut successful_reboot:bool = false;
-        //let mut exited_menu:bool = false;
         loop{
             match self.usb_tty.read_from_device(None){
                 Response::LoginPrompt => break,

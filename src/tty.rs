@@ -200,7 +200,7 @@ impl TTY{
                     }
                 }
             }
-            log::trace!("Unable to determine response. Response string is: [{:?}]",device_response);
+            log::warn!("Unable to determine response. Response string is: [{:?}]",device_response);
             return Response::Other;
         }
         else {

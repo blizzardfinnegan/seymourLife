@@ -47,7 +47,7 @@ fn main(){
             }
         }
 
-        log::info!("Testing all available USB ports for connected devices. This may take several minutes, and devices may reboot several times.");
+        log::info!("Testing all available USB ports for connected devices. This may take some time...");
         let gpio = &mut GpioPins::new();
         let mut available_ttys:Vec<Box<Path>> = Vec::new();
         for entry in glob::glob("/dev/serial/*").expect("Failed to read glob pattern"){
@@ -98,7 +98,6 @@ fn main(){
                 thread::spawn(move ||{
                     let tty_name = possible_tty.to_string_lossy();
                     log::debug!("Testing port {}",&tty_name);
-                    //let possible_port = TTY::new(&tty_name);
                     match TTY::new(&tty_name){
                         Some(mut port) =>{
                             port.write_to_device(tty::Command::Newline);
