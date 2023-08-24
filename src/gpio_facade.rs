@@ -9,9 +9,12 @@ pub struct GpioPins{
 impl GpioPins{
     pub fn new() -> Self {
         let mut output = Self { unassigned_addresses:Vec::new() };
+        //For each of the relay addresses...
         for pin in RELAY_ADDRESSES.iter(){
             match Gpio::new(){
                 Ok(gpio_object) =>{
+                    //Get the relevant GPIO pin, initialise it to be off, store the address, and
+                    //drop the pin so the Device object can pick it back up
                     match gpio_object.get(pin.clone()){
                         Ok(pin_object)=>{
                             _ = pin_object.into_output_low();

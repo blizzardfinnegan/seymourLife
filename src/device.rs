@@ -42,6 +42,8 @@ impl Device{
         match response{
             Some(response_value)=> {
                 match response_value{
+                    //If we got back a password prompt, that's a bad place to be in. Send a
+                    //newline to failout of the 
                     Response::PasswordPrompt=>{
                         usb_port.write_to_device(Command::Newline);
                         _ = usb_port.read_from_device(None);
